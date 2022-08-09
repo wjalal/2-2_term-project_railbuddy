@@ -1,0 +1,59 @@
+<script>
+	import { Styles, Form, FormGroup, Input, Button, Label } from "sveltestrap";
+	import axios from "axios";
+
+	let formData = {
+		mobile: '',
+		password: '',
+	};
+
+	const onLogin = (event) => {
+		event.preventDefault();
+		axios.post("/api/login", {
+			mobile: formData.mobile,
+			password: formData.password,
+		}).then(res => {
+			if (res.data.success) {
+				console.log(res);
+				localStorage.setItem('railbuddyUserName', res.data.name);
+				window.location.href = '/';
+			} else {
+				alert("No matching credentials found!");
+			};
+		}).catch(function (err) {
+			console.log(err);
+		});
+	};
+</script>
+
+<div id="loginform">
+	<h1>Sign In</h1>
+	<Form class="my-5 d-flex flex-column justify-content-center">
+		<FormGroup floating label="Mobile Number">
+			<Input type="tel" name="userid" id="userid" bind:value={formData.mobile}/>
+		</FormGroup>
+		<FormGroup floating label="Password">
+			<Input type="password" name="password" id="password" bind:value={formData.password}/>
+		</FormGroup>
+		<Button class="w-50 p-3 mx-auto" color="success" on:click={onLogin}
+			>Login</Button
+		>
+	</Form>
+</div>
+
+<style>
+	
+	@media only screen and (max-width: 768px) {
+		#loginform {
+			width: 90vw;
+			margin: 5vw;
+		}
+	}
+
+	@media only screen and (min-width: 768px) {
+		#loginform {
+			width: 30vw;
+			margin: 5vw;
+		}
+	}
+</style>
