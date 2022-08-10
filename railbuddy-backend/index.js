@@ -238,14 +238,20 @@ app.post('/api/getClasses', (req,res) => {
     }).catch(e => console.error(e.stack));
 });
 
-app.post('/api/search', (req, res) => {
-    console.log (req.body);
-    dbclient.query(`select *, get_station_name(origin) as oname, get_station_name(dest) as dname from train where id in (select tr_id from connecting_trains($1, $2))`,
-        [req.body.from, req.body.to]
-    ).then(qres => {
-        if (qres.rows.length === 0) res.send ( {success: false} );
-        else res.send ( {success: true, trains: qres.rows});
-    }).catch(e => console.error(e.stack));
+app.get('/search', (req, res) => {
+    if (Object.keys(req.query).length === 0) 
+        res.sendFile(path.resolve(__dirname, '../railbuddy-client/dist', 'index.html'));
+    else {
+        dbclient.query(`select *, get_station_name(origin) as oname, get_station_name(dest) as dname, 
+                        next_arrival(id, $2, NOW()), next_departure(id, $1, NOW())
+                        from train 
+                        where id in (select tr_id from connecting_trains($1, $2))`,
+                        [req.query.from, req.query.to]
+        ).then(qres => {
+            if (qres.rows.length === 0) res.send ( {success: false} );
+            else res.send ( {success: true, trains: qres.rows});
+        }).catch(e => console.error(e.stack));
+    };
 }); 
 
 app.post('/api/getCoaches', (req, res) => {
@@ -267,5 +273,5 @@ app.get('*', (req, res) => {
 });
 
 app.listen(port, () => {
-    console.log(`Example app listening on port ${port}`);
+    console.log(`RailBuddy backend listening on port ${port}`);
 });

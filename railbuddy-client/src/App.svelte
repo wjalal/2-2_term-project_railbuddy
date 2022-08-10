@@ -38,7 +38,7 @@
 
 <Router>
 	<header>
-		<Navbar class="px-2 px-md-5 mx-md-5 border-bottom border-2 border-success" color="light" light expand="md">
+		<Navbar class="px-2 px-md-5 mx-md-5 border-bottom border-2 border-success shadow" color="light" light expand="md">
 			<NavbarBrand href="/">
 				<div style="display:flex; align-items:center; gap:2vw">
 					<img id="railbuddy-logo" src={railbuddyLogo} alt="RailBuddy logo">
@@ -105,7 +105,7 @@
 
 	<main>
 		<Route path="/">
-			{window.location.replace("search")}
+			<Search/>
 		</Route>
 		<Route path="search">
 			<Search/>

@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "axios": "^0.27.2",
+    "bootstrap": "^5.2.0",
     "cors": "^2.8.5",
     "svelte-navigator": "^3.1.6",
     "sveltestrap": "^5.9.0"

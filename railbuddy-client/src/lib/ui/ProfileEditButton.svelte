@@ -10,3 +10,7 @@
 <Button color="light" on:click={(event)=> showUpdateInput(event, attr)} >
     <Icon name="pencil-square"/>
 </Button>
+
+<style>
+    @import "https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css";
+</style>

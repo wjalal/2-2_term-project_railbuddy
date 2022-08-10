@@ -42,7 +42,8 @@
 </div>
 
 <style>
-	
+	@import "https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css";
+
 	@media only screen and (max-width: 768px) {
 		#loginform {
 			width: 90vw;

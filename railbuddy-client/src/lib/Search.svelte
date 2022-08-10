@@ -1,7 +1,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.0/font/bootstrap-icons.css"/>
 <script>
 	import { onMount } from "svelte";
-	import { Styles, Form, FormGroup, Input, Button, Icon,
+	import { Styles, Form, FormGroup, Input, Button, Icon, Collapse, 
     Card,
     CardBody,
     CardFooter,
@@ -13,9 +13,11 @@
     CarouselControl,
     CarouselIndicators,
     CarouselItem,
-    CarouselCaption} from "sveltestrap";
+    CarouselCaption,
+Col} from "sveltestrap";
 	import axios from "axios";
 	import TrainInfo from "./ui/TrainInfo.svelte";
+
 	// import img1 from "./assets/img1.jpg";
 	// import img2 from "./assets/img2.jpg";
 	// import img3 from "./assets/img3.jpg";
@@ -25,7 +27,9 @@
 
 	let formData = {
 		from: 0,
+		fromName: '',
 		to: 0,
+		toName: '',
 		date: '',
 		class: ''
 	};
@@ -59,7 +63,13 @@
 	let formStyle = "";
 	let stations = [], classes = [], trains = [];
 
-	const server = "";
+	const server = "http://localhost";
+
+	const printTimeDate = (str) => {
+		let dt = new Date(str);
+		let print = dt.toDateString() + "\n" + dt.toLocaleTimeString();
+		return print;
+	};
 
 	onMount (event => {
 		axios.defaults.withCredentials = true;
@@ -75,19 +85,43 @@
 		});
 	});
 
+	const fromName = () => {
+		let from = document.getElementById("from");
+		// @ts-ignore
+		return from.options[from.selectedIndex].innerHTML;
+	};
+
+	const toName = () => {
+		let to = document.getElementById("to");
+		// @ts-ignore
+		return to.options[to.selectedIndex].innerHTML;
+	};
+
 	const onSearch = (event) => {
 		event.preventDefault();
-		axios.post(`${server}/api/search`, {
-			from: formData.from,
-			to: formData.to,
-			date: formData.date,
-			class: formData.class
+		axios.get(`${server}/search`, {
+			params: {
+				from: formData.from,
+				to: formData.to,
+				date: formData.date,
+				class: formData.class
+			}
 		}).then(res => {
 			if (res.data.success === false) {
 				alert("No matching trains found!");		
 			} else {
 				trains = [...res.data.trains];
 				console.log(trains);
+				formStyle = "flex-md-row"
+				document.getElementById("searchform").style.width = "86vw";
+				document.getElementById("search-heading").style.textAlign = "center";
+				document.getElementById("search-heading").style.marginBottom = "5vh";
+				// if (window.innerHeight <= 768) {
+				// 	document.getElementById("from").style.width = "21%";
+				// 	document.getElementById("to").style.width = "21%";
+				// 	document.getElementById("date").style.width = "21%";
+				// 	document.getElementById("class").style.width = "21%";
+				// };
 			};
 		}).catch(function (err) {
 			console.log(err);
@@ -96,10 +130,10 @@
 	};
 </script>
 
-<div id="searchform">
-	<h2>Search and Buy Tickets</h2>
-	<Form class="my-5 d-flex flex-column {formStyle} justify-content-center">
-		<FormGroup floating label="Start from (Starting station)">
+<div id="searchform" class="my-5 d-flex flex-column justify-content-center">
+	<h2 id="search-heading" class="mt-4">Search and Buy Tickets</h2>
+	<Form id = "searchformform" class="my-3 d-flex flex-column {formStyle} justify-content-center">
+		<FormGroup class="mx-1" floating label="Start from (Starting station)">
 			<Input type="select" name="from" id="from" bind:value={formData.from}>
 				{#each stations as st8n} 
 					<option value={st8n.id}> 
@@ -108,7 +142,7 @@
 				{/each}
 			</Input>
 		</FormGroup>
-		<FormGroup floating label="Travel to (Destination station)">
+		<FormGroup class="mx-1" floating label="Travel to (Destination station)">
 			<Input type="select" name="to" id="to" bind:value={formData.to}>
 				{#each stations as st8n} 
 				<option value={st8n.id}> 
@@ -117,20 +151,20 @@
 				{/each}
 			</Input>
 		</FormGroup>
-		<FormGroup floating label="Date of Travel">
+		<FormGroup class="mx-1" floating label="Date of Travel">
 			<Input type="date" name="date" id="date" bind:value={formData.date}/>
 		</FormGroup>
-		<FormGroup floating label="Class">
+		<FormGroup class="mx-1" floating label="Class">
 			<Input type="select" name="class" id="class" bind:value={formData.class}>
 				{#each classes as cls} 
 					<option>{cls}</option>
 				{/each}
 			</Input>
 		</FormGroup>
-		<Button class="w-50 p-2 mx-auto" color="success" on:click={onSearch}>
-			Search &nbsp; <Icon name="search" />
-		</Button>
 	</Form>
+	<Button class="w-50 p-2 mx-auto bg-success shadow" on:click={onSearch}>
+		Search &nbsp; <Icon name="search" />
+	</Button>
 </div>
 <!-- 
 <Carousel {items} bind:activeIndex ride interval={2000}>
@@ -150,46 +184,79 @@
   
 	<CarouselControl direction="prev" bind:activeIndex {items} />
 	<CarouselControl direction="next" bind:activeIndex {items} />
-  </Carousel> -->
+</Carousel> -->
 
 <br>
-{#if trains.length > 0}
-	{#each trains as train}
-		<Card class="mb-3 mx-5 display-flex flex-column">
-			<CardHeader>
-			<CardTitle>{train.name + " (" + train.id + ")"}</CardTitle>
-			</CardHeader>
-			<CardBody>
-			<CardSubtitle>
-				<p class="alignleft">{train.oname + " (" + train.origin + ")"}</p>
-  				<p class="alignright">{train.dname + " (" + train.dest + ")"}</p>
-				<br><br><br>
-			</CardSubtitle>
-			<CardText>
-				<div class='d-flex flex-md-row flex-column justify-content-start'>
-					<TrainInfo train_id = {train.id} />
-				</div>
-			</CardText>
-			</CardBody>
-			<!-- <CardFooter>Footer</CardFooter> -->
-		</Card>
-	{/each}
-{/if}
+<div class="mx-auto" id="train-list">
+	{#if trains.length > 0}
+		{#each trains as train}
+			<Card class="mb-4 mx-md-5 mx-4 display-flex flex-column border-danger bg-white">
+				<CardHeader>
+					<CardTitle>
+						<b class='alignleft text-danger'>{train.name + " (" + train.id + ")"}</b>
+						<Button class='bg-transparent text-dark border-0' style="float:right" id={"tgl" + train.id}>
+							<Icon color="danger" name="arrows-collapse" />
+						</Button>	
+					</CardTitle>
+				</CardHeader>
+				
+				<Collapse toggler={"#tgl" + train.id}>
+					<CardBody>
+						<CardSubtitle>
+							<p class="alignleft text-center">
+								<b>{fromName()}</b> <br>
+								{(new Date(train.next_departure)).toLocaleTimeString()} <br>
+								<small class="text-muted" >{(new Date(train.next_departure)).toDateString()}</small>
+							</p>
+							<p class="alignright text-center">
+								<b>{toName()}</b> <br>
+								{(new Date(train.next_arrival)).toLocaleTimeString()} <br>
+								<small class="text-muted" >{(new Date(train.next_arrival)).toDateString()}</small>
+							</p>
+							<br><br><br><br>
+						</CardSubtitle>
+						<CardText>
+							<div class='d-sm-flex flex-md-row flex-column justify-content-center'>
+								<TrainInfo train_id = {train.id} />
+							</div>
+						</CardText>
+					</CardBody>
+
+				</Collapse>
+				<!-- <CardFooter>Footer</CardFooter> -->
+			</Card>
+		{/each}
+	{/if}
+</div>
 
 
 <style>
+	@import "https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css";
+
 	
 	@media only screen and (max-width: 768px) {
-		#searchform {
-			width: 90vw;
-			margin: 5vw;
+		#searchform, #train-list {
+			width: 86vw;
+			margin-left: 7vw;
 		}
+
 	}
 
 	@media only screen and (min-width: 768px) {
 		#searchform {
-			width: 30vw;
+			width: 65vw;
 			margin: 5vw;
+		}
+		#train-list {
+			width: 65vw;
+			margin-left: 10vw;
+		}
+	}
+
+	@media only screen and (min-width: 1300px) {
+		#searchform {
+			width: 40vw;
+			margin: 5vw
 		}
 	}
 
