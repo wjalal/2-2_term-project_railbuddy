@@ -238,6 +238,17 @@ app.post('/api/getClasses', (req,res) => {
     }).catch(e => console.error(e.stack));
 });
 
+app.post('/api/search', (req, res) => {
+    console.log (req.body);
+    dbclient.query(`select *, get_station_name(origin) as oname, get_station_name(dest) as dname from train where id in (select tr_id from connecting_trains($1, $2))`,
+        [req.body.from, req.body.to]
+    ).then(qres => {
+        if (qres.rows.length === 0) res.send ( {success: false} );
+        else res.send ( {success: true, trains: qres.rows});
+    }).catch(e => console.error(e.stack));
+}); 
+
+
 app.use(express.static(path.resolve(__dirname, '../railbuddy-client/dist')));
 
 app.get('*', (req, res) => {

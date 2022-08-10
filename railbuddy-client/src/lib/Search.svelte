@@ -1,7 +1,14 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.0/font/bootstrap-icons.css"/>
 <script>
 	import { onMount } from "svelte";
-	import { Styles, Form, FormGroup, Input, Button, Icon } from "sveltestrap";
+	import { Styles, Form, FormGroup, Input, Button, Icon,
+    Card,
+    CardBody,
+    CardFooter,
+    CardHeader,
+    CardSubtitle,
+    CardText,
+    CardTitle } from "sveltestrap";
 	import axios from "axios";
 
 	let formData = {
@@ -11,7 +18,8 @@
 		class: ''
 	};
 
-	let stations = [], classes = [];
+	let formStyle = "";
+	let stations = [], classes = [], trains = [];
 
 	const server = "http://localhost";
 
@@ -29,18 +37,19 @@
 		});
 	});
 
-	const onLogin = (event) => {
+	const onSearch = (event) => {
 		event.preventDefault();
-		axios.post("/api/login", {
-			mobile: formData.mobile,
-			password: formData.password,
+		axios.post(`${server}/api/search`, {
+			from: formData.from,
+			to: formData.to,
+			date: formData.date,
+			class: formData.class
 		}).then(res => {
-			if (res.data.success) {
-				console.log(res);
-				localStorage.setItem('railbuddyUserName', res.data.name);
-				window.location.href = '/';
+			if (res.data.success === false) {
+				alert("No matching trains found!");		
 			} else {
-				alert("No matching credentials found!");
+				trains = [...res.data.trains];
+				console.log(trains);
 			};
 		}).catch(function (err) {
 			console.log(err);
@@ -50,7 +59,7 @@
 
 <div id="searchform">
 	<h2>Search and Buy Tickets</h2>
-	<Form class="my-5 d-flex flex-column justify-content-center">
+	<Form class="my-5 d-flex flex-column {formStyle} justify-content-center">
 		<FormGroup floating label="Start from (Starting station)">
 			<Input type="select" name="from" id="from" bind:value={formData.from}>
 				{#each stations as st8n} 
@@ -79,11 +88,32 @@
 				{/each}
 			</Input>
 		</FormGroup>
-		<Button class="w-50 p-2 mx-auto" color="success" on:click={onLogin}>
+		<Button class="w-50 p-2 mx-auto" color="success" on:click={onSearch}>
 			Search &nbsp; <Icon name="search" />
 		</Button>
 	</Form>
 </div>
+<br>
+{#if trains.length > 0}
+	{#each trains as train}
+		<Card class="mb-3 mx-5">
+			<CardHeader>
+			<CardTitle>{train.name + " (" + train.id + ")"}</CardTitle>
+			</CardHeader>
+			<CardBody>
+			<CardSubtitle>
+				<p class="alignleft">{train.oname + " (" + train.origin + ")"}</p>
+  				<p class="alignright">{train.dname + " (" + train.dest + ")"}</p>
+			</CardSubtitle>
+			<CardText>
+				
+			</CardText>
+			</CardBody>
+			<!-- <CardFooter>Footer</CardFooter> -->
+		</Card>
+	{/each}
+{/if}
+
 
 <style>
 	
@@ -99,5 +129,12 @@
 			width: 30vw;
 			margin: 5vw;
 		}
+	}
+
+	.alignleft {
+		float: left;
+	}
+	.alignright {
+		float: right;
 	}
 </style>
