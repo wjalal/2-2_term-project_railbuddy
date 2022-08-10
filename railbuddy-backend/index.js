@@ -248,6 +248,17 @@ app.post('/api/search', (req, res) => {
     }).catch(e => console.error(e.stack));
 }); 
 
+app.post('/api/getCoaches', (req, res) => {
+    console.log (req.body);
+    dbclient.query("select distinct on (class_name) class_id, class_name, fare from (select * from bogie order by fare desc) bogie where train_id=$1",
+    [req.body.id]
+    ).then(qres => {
+        if (qres.rows.length === 0) res.send ( {success: false} );
+        else res.send ( {success: true, classes: qres.rows});
+    }).catch(e => console.error(e.stack));
+}); 
+
+
 
 app.use(express.static(path.resolve(__dirname, '../railbuddy-client/dist')));
 

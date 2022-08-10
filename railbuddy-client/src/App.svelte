@@ -81,7 +81,7 @@
 					<Dropdown class="mx-md-4 mt-4 mt-md-0" nav inNavbar>
 						<DropdownToggle nav caret>
 							<Icon name="person-circle" />
-							<b>{`${userName}s`}</b> 
+							<b>{`${userName}`}</b> 
 						</DropdownToggle>
 						<DropdownMenu end>
 						<DropdownItem>

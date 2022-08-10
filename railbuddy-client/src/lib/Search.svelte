@@ -8,8 +8,20 @@
     CardHeader,
     CardSubtitle,
     CardText,
-    CardTitle } from "sveltestrap";
+    CardTitle,
+	Carousel,
+    CarouselControl,
+    CarouselIndicators,
+    CarouselItem,
+    CarouselCaption} from "sveltestrap";
 	import axios from "axios";
+	import TrainInfo from "./ui/TrainInfo.svelte";
+	// import img1 from "./assets/img1.jpg";
+	// import img2 from "./assets/img2.jpg";
+	// import img3 from "./assets/img3.jpg";
+	// import img4 from "./assets/img4.jpg";
+	// import img5 from "./assets/img5.jpg";
+
 
 	let formData = {
 		from: 0,
@@ -18,10 +30,36 @@
 		class: ''
 	};
 
+	const items = [
+		{
+			url: "../assets/img1.jpg",
+			subTitle: 'Slide 1'
+		},
+		{
+			url: "../assets/img1.jpg",
+			subTitle: 'Slide 2'
+		},
+		{
+			url: "../assets/img1.jpg",
+			subTitle: 'Slide 3'
+		},
+		{
+			url: "../assets/img1.jpg",
+			subTitle: 'Slide 3'
+		},
+		{
+			url: "../assets/img1.jpg",
+			subTitle: 'Slide 3'
+		}
+	];
+ 	 let activeIndex = 0;
+
+
+
 	let formStyle = "";
 	let stations = [], classes = [], trains = [];
 
-	const server = "http://localhost";
+	const server = "";
 
 	onMount (event => {
 		axios.defaults.withCredentials = true;
@@ -54,6 +92,7 @@
 		}).catch(function (err) {
 			console.log(err);
 		});
+		window.scrollTo(0, 800);
 	};
 </script>
 
@@ -93,10 +132,30 @@
 		</Button>
 	</Form>
 </div>
+<!-- 
+<Carousel {items} bind:activeIndex ride interval={2000}>
+	<CarouselIndicators bind:activeIndex {items} />
+  
+	<div class="carousel-inner">
+	  {#each items as item, index}
+		<CarouselItem bind:activeIndex itemIndex={index}>
+		  <img src={item.url} class="d-block w-100" alt={item.title} />
+		  <CarouselCaption
+			captionHeader={item.title}
+			captionText={item.subTitle}
+		  />
+		</CarouselItem>
+	  {/each}
+	</div>
+  
+	<CarouselControl direction="prev" bind:activeIndex {items} />
+	<CarouselControl direction="next" bind:activeIndex {items} />
+  </Carousel> -->
+
 <br>
 {#if trains.length > 0}
 	{#each trains as train}
-		<Card class="mb-3 mx-5">
+		<Card class="mb-3 mx-5 display-flex flex-column">
 			<CardHeader>
 			<CardTitle>{train.name + " (" + train.id + ")"}</CardTitle>
 			</CardHeader>
@@ -104,9 +163,12 @@
 			<CardSubtitle>
 				<p class="alignleft">{train.oname + " (" + train.origin + ")"}</p>
   				<p class="alignright">{train.dname + " (" + train.dest + ")"}</p>
+				<br><br><br>
 			</CardSubtitle>
 			<CardText>
-				
+				<div class='d-flex flex-md-row flex-column justify-content-start'>
+					<TrainInfo train_id = {train.id} />
+				</div>
 			</CardText>
 			</CardBody>
 			<!-- <CardFooter>Footer</CardFooter> -->
