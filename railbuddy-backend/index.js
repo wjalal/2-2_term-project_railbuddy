@@ -96,7 +96,7 @@ app.post('/api/sendOTP', (req, res) => {
     ).then(qres => {
         if (qres.rows[0].count === '0') {
             dbclient.query (
-                "SELECT UPSERT($2, $1)",
+                "CALL UPSERT_OTP($2, $1)",
                 [otpGenerator.generate(6, {
                     upperCaseAlphabets: false,
                     lowerCaseAlphabets: false,
@@ -242,15 +242,29 @@ app.get('/search', (req, res) => {
     if (Object.keys(req.query).length === 0) 
         res.sendFile(path.resolve(__dirname, '../railbuddy-client/dist', 'index.html'));
     else {
-        dbclient.query(`select *, get_station_name(origin) as oname, get_station_name(dest) as dname, 
-                        next_arrival(id, $2, NOW()), next_departure(id, $1, NOW())
-                        from train 
-                        where id in (select tr_id from connecting_trains($1, $2))`,
-                        [req.query.from, req.query.to]
-        ).then(qres => {
-            if (qres.rows.length === 0) res.send ( {success: false} );
-            else res.send ( {success: true, trains: qres.rows});
-        }).catch(e => console.error(e.stack));
+        if (new Date(req.query.date) == new Date()) {
+            console.log ("searching trains after NOW");
+            dbclient.query(`select *, get_station_name(origin) as oname, get_station_name(dest) as dname, 
+                            next_arrival(id, $2, NOW()), next_departure(id, $1, NOW())
+                            from train 
+                            where id in (select tr_id from connecting_trains($1, $2))`,
+                            [req.query.from, req.query.to]
+            ).then(qres => {
+                if (qres.rows.length === 0) res.send ( {success: false} );
+                else res.send ( {success: true, trains: qres.rows});
+            }).catch(e => console.error(e.stack));
+        } else {
+            console.log ("searching trains after" + req.query.date);
+            dbclient.query(`select *, get_station_name(origin) as oname, get_station_name(dest) as dname, 
+                            next_arrival(id, $2, $3::timestamp), next_departure(id, $1, $3::timestamp)
+                            from train 
+                            where id in (select tr_id from connecting_trains($1, $2))`,
+                            [req.query.from, req.query.to, req.query.date]
+            ).then(qres => {
+                if (qres.rows.length === 0) res.send ( {success: false} );
+                else res.send ( {success: true, trains: qres.rows});
+            }).catch(e => console.error(e.stack));
+        }
     };
 }); 
 
@@ -264,6 +278,15 @@ app.post('/api/getCoaches', (req, res) => {
     }).catch(e => console.error(e.stack));
 }); 
 
+app.post('/api/checkSeats', (req, res) => {
+    console.log (req.body);
+    dbclient.query("select coach, mat_row, mat_col, mat from seat_config where class_id=$1",
+    [req.body.class_id]
+    ).then(qres => {
+        if (qres.rows.length === 0) res.send ( {success: false} );
+        else res.send ( {success: true, bogies: qres.rows});
+    }).catch(e => console.error(e.stack));
+}); 
 
 
 app.use(express.static(path.resolve(__dirname, '../railbuddy-client/dist')));

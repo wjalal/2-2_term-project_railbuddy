@@ -42,7 +42,7 @@
 			<NavbarBrand href="/">
 				<div style="display:flex; align-items:center; gap:2vw">
 					<img id="railbuddy-logo" src={railbuddyLogo} alt="RailBuddy logo">
-					<h6>Smart e-Ticketing Platform</h6>
+					<h6 id="nav-title">Smart e-Ticketing Platform</h6>
 				</div>	
 			</NavbarBrand>
 			<NavbarToggler on:click={() => (isOpen = !isOpen)} />
@@ -133,6 +133,24 @@
 		#railbuddy-logo {
 			width: 20vw;	
 		}		
+	}
+
+	@media only screen and (max-width: 768px) {
+		#nav-title {
+			visibility: visible;	
+		}
+	}
+
+	@media only screen and (min-width: 768px) {
+		#nav-title {
+			visibility: hidden;	
+		}
+	}
+
+	@media only screen and (min-width: 1200px) {
+		#nav-title {
+			visibility: visible;	
+		}
 	}
 
 	@media only screen and (min-width: 1080px) {
