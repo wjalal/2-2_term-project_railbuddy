@@ -19,6 +19,7 @@
     "cors": "^2.8.5",
     "pretty-ms": "^8.0.0",
     "svelte-navigator": "^3.1.6",
+    "svelte-select": "^4.4.7",
     "sveltestrap": "^5.9.0"
   }
 }

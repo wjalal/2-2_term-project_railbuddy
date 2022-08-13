@@ -1,4 +1,5 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.0/font/bootstrap-icons.css"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Rubik">
 
 <script>
 	import { Styles, Collapse, Navbar, NavbarToggler, NavbarBrand, Nav, NavItem, NavLink, Dropdown, DropdownToggle, DropdownMenu,DropdownItem, Button, Icon } from "sveltestrap";
@@ -8,6 +9,7 @@
 	import Register from "./lib/Register.svelte";
 	import Profile from "./lib/Profile.svelte"; 
 	import Password from "./lib/Password.svelte";
+	import UpdateMobile from "./lib/UpdateMobile.svelte";
 	import railbuddyLogo from "./assets/railBuddy.png";
 	import axios from 'axios';
 
@@ -38,42 +40,43 @@
 
 <Router>
 	<header>
-		<Navbar class="px-2 px-md-5 mx-md-5 border-bottom border-2 border-success shadow" color="light" light expand="md">
+		<Navbar id="rbnavbar" class="navbar fixed-top px-2 px-md-5 mx-md-5 border-bottom border-2 border-success shadow" 
+				style='background-color: rgb(225, 251, 220)' light expand="md">
 			<NavbarBrand href="/">
 				<div style="display:flex; align-items:center; gap:2vw">
 					<img id="railbuddy-logo" src={railbuddyLogo} alt="RailBuddy logo">
-					<h6 id="nav-title">Smart e-Ticketing Platform</h6>
+					<b class='h6' id="nav-title">Smart e-Ticketing Platform</b>
 				</div>	
 			</NavbarBrand>
 			<NavbarToggler on:click={() => (isOpen = !isOpen)} />
 			<Collapse {isOpen} navbar expand="md" on:update={handleUpdate}>
 				<Nav class="ms-auto" navbar>
-				<NavItem>
+				<NavItem class='mx-lg-2'>
 					<NavLink href="/">  Search / Buy</NavLink>
 				</NavItem>
 				{#if userName === null}
-					<NavItem>
+					<NavItem class='mx-lg-2'>
 						<NavLink href="login">Login</NavLink>
 					</NavItem>
-					<NavItem>
+					<NavItem class='mx-lg-2'>
 						<NavLink href="register">Register</NavLink>
 					</NavItem>
 				{/if}
-				<NavItem>
+				<NavItem class='mx-lg-2'>
 					<NavLink href="verif">Ticket Verification</NavLink>
 				</NavItem>
 				<Dropdown nav inNavbar>
 					<DropdownToggle nav caret>Reach Out to Us </DropdownToggle>
-					<DropdownMenu end>
+					<DropdownMenu style='background-color: rgb(225, 251, 220)' end>
 					<DropdownItem>
-						<Link to= "complaint">Complaint</Link>
+						<Link class='text-dark' to= "complaint">Complaint</Link>
 					</DropdownItem>
 					<DropdownItem>
-						<Link to= "request">Request</Link>
+						<Link class='text-dark' to= "request">Request</Link>
 					</DropdownItem>
 					<DropdownItem divider />
 					<DropdownItem>
-						<Link to= "contact">Contact Us</Link>
+						<Link class='text-dark' to= "contact">Contact Us</Link>
 					</DropdownItem>
 					</DropdownMenu>
 				</Dropdown>
@@ -85,10 +88,10 @@
 						</DropdownToggle>
 						<DropdownMenu end>
 						<DropdownItem>
-							<Link to= "profile">My Profile / Preferences</Link>
+							<Link class='text-dark' to= "profile">My Profile / Preferences</Link>
 						</DropdownItem>
 						<DropdownItem>
-							<Link to= "purchases">Purchase History</Link>
+							<Link class='text-dark' to= "purchases">Purchase History</Link>
 						</DropdownItem>
 						<DropdownItem divider />
 						<DropdownItem>
@@ -104,6 +107,7 @@
 	</header>
 
 	<main>
+		<br><br><br><br>
 		<Route path="/">
 			<Search/>
 		</Route>
@@ -121,6 +125,9 @@
 		</Route>
 		<Route path="password">
 			<Password/>
+		</Route>
+		<Route path="update-mobile">
+			<UpdateMobile/>
 		</Route>
 	</main>
 </Router>
@@ -157,6 +164,11 @@
 		#railbuddy-logo {
 			width: 15vh;	
 		}	
+	}
+	
+	:global(body){ 
+		background-color: rgb(250, 255, 240);
+		font-family: "Rubik", sans-serif;
 	}
 
 </style>

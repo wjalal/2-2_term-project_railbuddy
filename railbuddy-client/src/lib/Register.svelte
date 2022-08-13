@@ -17,6 +17,7 @@
 
 
 	const onRegister = (event) => {
+		axios.defaults.withCredentials = true;
 		event.preventDefault();
 		if (!formData.showOTP && !formData.showNID && !formData.showPassword) {
 			axios.post("/api/sendOTP", {
@@ -46,6 +47,7 @@
 
 		} else if (!formData.showOTP && formData.showNID && !formData.showPassword) {
 			axios.post("/api/checkNID", {
+				mobile: formData.mobile,
 				nid: formData.nid,
 				dob: formData.dob
 			}).then (res => {
@@ -87,14 +89,14 @@
 </script>
 
 <div id="loginform">
-	<h1>Sign Up</h1>
+	<p class ='h1'>Sign Up</p>
 	<Form class="my-5 d-flex flex-column justify-content-center">
 		<FormGroup floating label="Mobile Number">
 			<Input type="tel" name="userid" id="userid" bind:value={formData.mobile} disabled={formData.disableMobile}/>
 		</FormGroup>
 		{#if formData.showOTP}
 			<FormGroup floating label="SMS Verification Code">
-				<Input type="tel" name="userid" id="userid" bind:value={formData.otp} disabled={formData.disableNID}/>
+				<Input type="tel" name="otp" id="otp" bind:value={formData.otp} disabled={formData.disableNID}/>
 			</FormGroup>
 		{/if}
 		{#if formData.showNID}

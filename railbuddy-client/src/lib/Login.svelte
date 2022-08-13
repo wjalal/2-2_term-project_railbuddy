@@ -27,7 +27,7 @@
 </script>
 
 <div id="loginform">
-	<h1>Sign In</h1>
+	<p class ='h1'>Sign In</p>
 	<Form class="my-5 d-flex flex-column justify-content-center">
 		<FormGroup floating label="Mobile Number">
 			<Input type="tel" name="userid" id="userid" bind:value={formData.mobile}/>

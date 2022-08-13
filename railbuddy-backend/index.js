@@ -8,6 +8,7 @@ const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const otpGenerator = require('otp-generator');
 const axios = require('axios');
+const crypto = require('crypto');
 
 app.use(bodyParser.json());
 app.use(cookieParser());
@@ -16,24 +17,23 @@ app.enable('trust proxy');
 // app.use(cors());
 app.use(cors({
     origin: 'http://localhost:5173',
-    // methods: ['POST', 'PUT', 'GET', 'OPTIONS', 'HEAD'],
     credentials: true
 }));
-// app.options('*', cors({
-//     origin: true,
-//     credentials: true
-// }));
 
-// app.use((req, res) => {  
-//     res.header('Access-Control-Allow-Credentials', true);
-//     res.header('Access-Control-Allow-Origin', 'https://mcve.glitch.me'); // only_one_url_here');
-//     res.header('Access-Control-Allow-Headers', 'Content-Type, POST, GET, OPTIONS, DELETE');
-// });  
+const getSHA256 = (input) => {
+    return crypto.createHash('sha256').update(JSON.stringify(input)).digest('hex');
+};
 
+const getSHA512 = (input) => {
+    return crypto.createHash('sha512').update(JSON.stringify(input)).digest('hex');
+};
 
+const getMD5 = (input) => {
+    return crypto.createHash('md5').update(JSON.stringify(input)).digest('hex');
+};
 
 app.use(session({
-    secret: 'এইটো হৈছে ৰেলৱে ৱেবছাইটৰ সুৰক্ষা নিশ্চিত কৰিবলৈ ডাঙৰ এক্সপ্রেছ চেছনৰ ডাঙৰ অসমীয়া চিক্রেট',
+    secret: 'এইটো হৈছে ৰেলৱে ৱেবছাইটৰ সুৰক্ষা নিশ্চিত কৰিবলৈ ডাঙৰ এক্সপ্রেছ চেছনৰ ডাঙৰ অসমীয়া চিকৰেট',
     resave: false,
     saveUninitialized: true,
     sameSite: 'none',
@@ -103,6 +103,7 @@ app.post('/api/sendOTP', (req, res) => {
                     specialChars: false
                 }), req.body.mobile]
             ).then(qres2 => {
+                req.session.userid = req.body.mobile;
                 res.send(true);
             }).catch(e => console.error(e.stack));
         } else res.send(false);
@@ -110,49 +111,55 @@ app.post('/api/sendOTP', (req, res) => {
 });
 
 app.post('/api/checkOTP', (req, res) => {
-    dbclient.query (
-        `SELECT otp FROM otp WHERE mobile=$1`,
-        [req.body.mobile]
-    ).then (qres => {
-        if (qres.rows[0].otp === req.body.otp) res.send(true);
-        else res.send("Invalid OTP!");
-    }).catch(e => console.error(e.stack));
+    if (req.body.mobile == req.session.userid) {
+        dbclient.query (
+            `SELECT otp FROM otp WHERE mobile=$1`,
+            [req.body.mobile]
+        ).then (qres => {
+            if (qres.rows[0].otp === req.body.otp) res.send(true);
+            else res.send("Invalid OTP!");
+        }).catch(e => console.error(e.stack));
+    } else res.send ("Invalid session!");
 });
 
 app.post('/api/checkNID', (req, res) => {
-    dbclient.query (
-        `SELECT COUNT(*) FROM customer WHERE nid=$1`,
-        [req.body.nid]
-    ).then(qres => {
-        if (qres.rows[0].count === '0') {
-            axios.post("http://localhost:6969/api", {
-				nid: req.body.nid,
-				dob: req.body.dob
-			}).then (res2 => {
-				console.log(res2.data);
-				if (res2.data === false) {
-					res.send (false)
-				} else res.send (res2.data); 
-			}).catch (err => {
-				console.log(err);
-			});
-        } else res.send (true);
-    }).catch(e => console.error(e.stack));
+    if (req.body.mobile == req.session.userid) {
+        dbclient.query (
+            `SELECT COUNT(*) FROM customer WHERE nid=$1`,
+            [req.body.nid]
+        ).then(qres => {
+            if (qres.rows[0].count === '0') {
+                axios.post("http://localhost:6969/api", {
+                    nid: req.body.nid,
+                    dob: req.body.dob
+                }).then (res2 => {
+                    console.log(res2.data);
+                    if (res2.data === false) {
+                        res.send (false)
+                    } else res.send (res2.data); 
+                }).catch (err => {
+                    console.log(err);
+                });
+            } else res.send (true);
+        }).catch(e => console.error(e.stack));
+    } else res.redirect('/register');
 });
 
 app.post('/api/register', (req, res) => {
-    console.log(req.body);
-    dbclient.query (
-        "INSERT INTO customer(mobile, password, nid, dob, name, address) values($1, $2, $3, $4, $5, $6)",
-        [req.body.mobile, req.body.password, req.body.nid, req.body.dob, req.body.name, req.body.address]
-    ).then(qres => {
-        console.log(qres);
-        if (qres.rowCount === 1) res.send(true);
-        else if (qres.rowCount === 0) res.send(false);
-    }).catch(e => {
-        console.error(e.stack);
-        res.send(false);
-    });
+    if (req.body.mobile == req.session.userid) {
+        console.log(req.body);
+        dbclient.query (
+            "INSERT INTO customer(mobile, password, nid, dob, name, address) values($1, $2, $3, $4, $5, $6)",
+            [req.body.mobile, req.body.password, req.body.nid, req.body.dob, req.body.name, req.body.address]
+        ).then(qres => {
+            console.log(qres);
+            if (qres.rowCount === 1) res.send(true);
+            else if (qres.rowCount === 0) res.send(false);
+        }).catch(e => {
+            console.error(e.stack);
+            res.send(false);
+        });
+    } else res.send(false);
 });
 
 app.post('/api/logout',(req,res) => {
@@ -224,7 +231,7 @@ app.post('/api/updatePassword', (req,res) => {
 });
 
 app.post('/api/getStations', (req,res) => {
-    dbclient.query("SELECT id, name, district FROM station WHERE id < 900").then(qres => {
+    dbclient.query("SELECT id, name, district FROM station WHERE id < 900 ORDER BY district ASC, name ASC").then(qres => {
         res.send(qres.rows);
     }).catch(e => console.error(e.stack));
 });
@@ -242,10 +249,10 @@ app.get('/search', (req, res) => {
     if (Object.keys(req.query).length === 0) 
         res.sendFile(path.resolve(__dirname, '../railbuddy-client/dist', 'index.html'));
     else {
-        if (new Date(req.query.date) == new Date()) {
+        if ((new Date(req.query.date)).toISOString().substring(0,10) == (new Date()).toISOString().substring(0,10)) {
             console.log ("searching trains after NOW");
             dbclient.query(`select *, get_station_name(origin) as oname, get_station_name(dest) as dname, 
-                            next_arrival(id, $2, NOW()), next_departure(id, $1, NOW())
+                            next_journey_arrival(id, $1, $2, NOW()), next_departure(id, $1, NOW())
                             from train 
                             where id in (select tr_id from connecting_trains($1, $2))`,
                             [req.query.from, req.query.to]
@@ -256,7 +263,7 @@ app.get('/search', (req, res) => {
         } else {
             console.log ("searching trains after" + req.query.date);
             dbclient.query(`select *, get_station_name(origin) as oname, get_station_name(dest) as dname, 
-                            next_arrival(id, $2, $3::timestamp), next_departure(id, $1, $3::timestamp)
+                            next_journey_arrival(id, $1, $2, $3::timestamp), next_departure(id, $1, $3::timestamp)
                             from train 
                             where id in (select tr_id from connecting_trains($1, $2))`,
                             [req.query.from, req.query.to, req.query.date]
@@ -270,8 +277,9 @@ app.get('/search', (req, res) => {
 
 app.post('/api/getCoaches', (req, res) => {
     console.log (req.body);
-    dbclient.query("select distinct on (class_name) class_id, class_name, fare from (select * from bogie order by fare desc) bogie where train_id=$1",
-    [req.body.id]
+    dbclient.query(`select distinct on (class_name) class_id, class_name, fare, get_capacity(class_id) as capacity, 
+                    get_vacancy(class_id, $2) as vacancy from (select * from bogie order by fare desc) bogie where train_id=$1`,
+    [req.body.id, req.body.date]
     ).then(qres => {
         if (qres.rows.length === 0) res.send ( {success: false} );
         else res.send ( {success: true, classes: qres.rows});
@@ -280,14 +288,96 @@ app.post('/api/getCoaches', (req, res) => {
 
 app.post('/api/checkSeats', (req, res) => {
     console.log (req.body);
-    dbclient.query("select coach, mat_row, mat_col, mat from seat_config where class_id=$1",
-    [req.body.class_id]
+
+    dbclient.query(`select seat_config.coach, mat_row, mat_col, mat, vacancy 
+                    from seat_config join get_vacancy_matrices($1, $2) as occdate 
+                    on seat_config.coach = occdate.coach 
+                    where class_id=$1`,
+    [req.body.class_id, req.body.date]
     ).then(qres => {
         if (qres.rows.length === 0) res.send ( {success: false} );
         else res.send ( {success: true, bogies: qres.rows});
     }).catch(e => console.error(e.stack));
 }); 
 
+app.post('/api/validateSendNewMobileOTP', (req, res) => {
+    if (req.session.userid) {
+        console.log(req.body);
+        dbclient.query(
+            `SELECT COUNT(*) FROM customer WHERE mobile=$1 AND password=$2`,
+            [req.session.userid, req.body.password]
+        ).then(qres => {
+            //console.log(qres);
+            if (qres.rows[0].count == '0') res.send({ 
+                success: false,
+            });
+            else {
+                req.session.pwdChangeValidity = getSHA256(req.session.userid + 'এইটো সৰু একটো চিকৰেট');
+                res.send({
+                    success: true,
+                });
+                console.log(req.session);
+            };
+        }).catch(e => console.error(e.stack));
+    } else {
+        req.session.destroy();
+        res.send({ 
+            success: false,
+        });
+    };
+});
+
+app.post('/api/sendNewMobileOTP', (req, res) => {
+    if (req.session.userid && req.session.pwdChangeValidity == getSHA256(req.session.userid + 'এইটো সৰু একটো চিকৰেট')) {
+        dbclient.query (
+            "CALL UPSERT_OTP($2, $1); ",
+            [otpGenerator.generate(6, {
+                upperCaseAlphabets: false,
+                lowerCaseAlphabets: false,
+                specialChars: false
+            }), req.body.newMobile]
+        ).then(qres2 => {
+            console.log(qres2);
+            res.send({
+                success: true,
+            });
+        }).catch(e => console.error(e.stack));
+    } else {
+        req.session.destroy();
+        res.send({ 
+            success: false,
+        });
+    };
+});
+
+
+app.post('/api/changePassword', (req, res) => {
+    if (req.session.userid && req.session.pwdChangeValidity == getSHA256(req.session.userid + 'এইটো সৰু একটো চিকৰেট')) {
+        console.log(req.body);
+        dbclient.query (
+            "UPDATE customer SET mobile=$1 where mobile=$2 AND password=$3 AND (SELECT otp FROM otp WHERE mobile=$1) = $4",
+            [req.body.newMobile, req.session.userid, req.body.password, req.body.otp]
+        ).then(qres => {
+            console.log(qres);
+            if (qres.rowCount === 1) res.send({ 
+                success: true,
+            });
+            else if (qres.rowCount === 0) res.send({ 
+                success: false,
+            });
+        }).catch(e => {
+            console.error(e.stack);
+            res.send({ 
+                success: false,
+            });
+        });
+    } else {
+        req.session.destroy();
+        res.send({ 
+            success: false,
+        });
+    };
+});
 
 app.use(express.static(path.resolve(__dirname, '../railbuddy-client/dist')));
 

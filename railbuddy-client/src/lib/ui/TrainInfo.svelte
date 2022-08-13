@@ -19,7 +19,10 @@ import { each, is_client } from "svelte/internal";
     
     const getSBogie = () => {    
         for (const bogie of displayBogies) {
-            if (bogie.coach == sBogie) sBogieObj = bogie;
+            if (bogie.coach == sBogie) {
+                sBogieObj = bogie;
+                break;
+            };
         };
         init_selMat();
     };
@@ -42,14 +45,21 @@ import { each, is_client } from "svelte/internal";
         if (selMat[i][j] === false) {
             if (selCount < 4) selMat[i][j] = true, selCount++;
         } else {
-            if (selCount > 0) selMat[i][j] = true, selCount--;
+            if (selCount > 0) selMat[i][j] = false, selCount--;
         };
     };
+
+
+	const getVacMat = (coach, bogie) => {
+
+    } 
+
 
     onMount (event => {
 		axios.defaults.withCredentials = true;
 		axios.post(`${server}/api/getCoaches`, {
-			id: train_id
+			id: train_id,
+            date: date
 		}).then(res => {
 			if (res.data.success === false) {
 				alert("Server Error");		
@@ -105,6 +115,11 @@ import { each, is_client } from "svelte/internal";
                     {(coach.class_name == 'AC_S' || coach.class_name == 'AC_B' || coach.class_name == 'SNIGDHA')? "+15% VAT" :  " " }
                 </small>
             </CardSubtitle>
+            <br>
+            <p class='text-center text-black-50 text-uppercase mb-0' style='font-size: 0.8rem'>Total Capacity &nbsp;: 
+                <b class='text-dark'>{coach.capacity}</b></p>
+            <p class='text-center text-secondary text-uppercase'style='font-size: 0.7rem'>Current Vacancy : 
+                <b class='text-success'>{coach.vacancy}</b></p>
             {#if showSeats && sCoach === coach}
             <div class="d-flex flex-column justify-content-center mx-auto w-100 my-4">
                 <FormGroup floating label="Select Bogie">
@@ -121,11 +136,12 @@ import { each, is_client } from "svelte/internal";
                         {#each Array(sBogieObj.mat_col) as _, j}
                             <Col class="p-1 flex-fil">
                                 {#if sBogieObj.mat[i][j] !== 0}
-                                <Button class='px-0 py-1 my-1 w-100 bg-{selMat[i][j]?"success":"light"} border-dark'
+                                <Button class='px-0 py-1 my-1 w-100 bg-{selMat[i][j]? (sBogieObj.vacancy[i][i]? "danger":"success"):"light"} border-dark'
                                         on:click={() => clickSeat(i,j)} >
-                                    <span class='text-{selMat[i][j]?"light":"dark"}' style="font-size: 0.6rem">
-                                        <b>{sBogieObj.coach}{sBogieObj.mat[i][j]}</b>
-                                    </span>
+                                    <div class='text-{selMat[i][j]?"light":"dark"} text-center' 
+                                          style='font-size: {sBogieObj.mat_col>5? 0.5:0.6}rem; white-space:pre-line; line-height:1.3'>
+                                        <b>{sBogieObj.coach + '\n' + sBogieObj.mat[i][j]}</b>
+                                    </div>
                                 </Button>
                                 {:else}<small style="font-size: 0.6rem"> </small>{/if}
                             </Col>
@@ -137,7 +153,9 @@ import { each, is_client } from "svelte/internal";
             {/if}
         </CardBody>
         <CardFooter>
-            <Button class="bg-success w-75 mx-auto mx-md-4" on:click={() => onCheckSeats(coach)}>Check Seats</Button> 
+            <Button class='{showSeats && coach === sCoach? "text-dark border-success border-2 bg-white":"bg-success"} w-75 mx-auto mx-md-4' on:click={() => onCheckSeats(coach)}>
+                {showSeats && coach === sCoach? "Refresh" : "Check Seats"}
+            </Button> 
         </CardFooter> 
     </Card>
     </div>

@@ -1,7 +1,8 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.0/font/bootstrap-icons.css"/>
+
 <script>
 	import { onMount } from "svelte";
-	import { Styles, Form, FormGroup, Input, Button, Icon, Collapse, 
+	import { Styles, Form, FormGroup, Input, Button, Icon, Collapse, Label,
     Card,
     CardBody,
     CardFooter,
@@ -19,28 +20,26 @@
 	import TrainInfo from "./ui/TrainInfo.svelte";
 	import prettyMilliseconds from 'pretty-ms';
 
+	import Select from 'svelte-select';
+
 
 	let formData = {
-		from: 0, fromName: '', to: 0, toName: '', reDate: '', class: '',
+		from: 0, fromName: '', to: 0, toName: '', reDate: '', class: '', fromDist: '', toDist: '',
 		date: (new Date(Date.now() - (new Date()).getTimezoneOffset() * 60000)).toISOString().substring(0, 10),	
 	};
 
-
+	const optionIdentifier = 'id';
+	const labelIdentifier = 'name';
+	const groupBy = (station) => station.district;
 	let formStyle = "";
 	let stations = [], classes = [], trains = [];
 
-	const server = "http://localhost";
-
-
-	const replaceBracket = (string) => {
-		let index = string.indexOf('(') - 1;
-		return string.substring(0, index) + "\n" + string.substring(index + "\n".length);
-	};
+	const server = "";
 
 	onMount (event => {
 		axios.defaults.withCredentials = true;
 		axios.post(`${server}/api/getStations`).then(res => {
-			stations = [{name: ""}, ...res.data];
+			stations = [...res.data];
 		}).catch(function (err) {
 			console.log(err);
 		});
@@ -51,20 +50,18 @@
 		});
 	});
 
-	const fromName = () => {
-		let from = document.getElementById("from");
-		// @ts-ignore
-		return from.options[from.selectedIndex].innerHTML;
-	};
-
-	const toName = () => {
-		let to = document.getElementById("to");
-		// @ts-ignore
-		return to.options[to.selectedIndex].innerHTML;
-	};
-
 	const onSearch = (event) => {
 		event.preventDefault();
+		for (const st of stations) {
+            if (st.id == formData.to) {
+                formData.toName = st.name;
+				formData.toDist = st.district;
+            };
+			if (st.id == formData.from) {
+                formData.fromName = st.name;
+				formData.fromDist = st.district;
+            };
+        };
 		formData.reDate = formData.date;
 		axios.get(`${server}/search`, {
 			params: {
@@ -92,25 +89,29 @@
 </script>
 
 <div id="searchform" class="my-5 d-flex flex-column justify-content-center">
-	<h2 id="search-heading" class="mt-4">Search and Buy Tickets</h2>
+	<p id="search-heading" class="h2 mt-2 mb-4 mt-md-5">Search and Buy Tickets</p>
 	<Form id = "searchformform" class="my-3 d-flex flex-column {formStyle} justify-content-center">
-		<FormGroup class="mx-1" floating label="Start from (Starting station)">
-			<Input type="select" name="from" id="from" bind:value={formData.from}>
+		<FormGroup class="mx-1">
+			<!-- <Input type="select" name="from" id="from" bind:value={formData.from}>
 				{#each stations as st8n} 
 					<option value={st8n.id}> 
 						{st8n.name + (st8n.name !== "" ? `  (${st8n.district})` : "")}
 					</option>
 				{/each}
-			</Input>
+			</Input> -->
+			<Label class="text-dark" for="to"><small>Start from</small></Label>
+			<Select id = "from" {optionIdentifier} {labelIdentifier} items={stations} {groupBy} on:select={e => {formData.from = e.detail.id}}/>
 		</FormGroup>
-		<FormGroup class="mx-1" floating label="Travel to (Destination station)">
-			<Input type="select" name="to" id="to" bind:value={formData.to}>
+		<FormGroup class="mx-1">
+			<!-- <Input type="select" name="to" id="to" bind:value={formData.to}>
 				{#each stations as st8n} 
 				<option value={st8n.id}> 
 					{st8n.name + (st8n.name !== "" ? `  (${st8n.district})` : "")}
 				</option>
 				{/each}
-			</Input>
+			</Input> -->
+			<Label class="text-muted" for="to"><small>Travel to</small></Label>
+			<Select {optionIdentifier} {labelIdentifier} items={stations} {groupBy} on:select={e => {formData.to = e.detail.id}}/>
 		</FormGroup>
 		<FormGroup class="mx-1" floating label="Date of Travel">
 			<Input type="date" name="date" id="date" bind:value={formData.date}/>
@@ -123,7 +124,7 @@
 			</Input>
 		</FormGroup>
 	</Form>
-	<Button class="p-2 mx-auto bg-success shadow" style="width:30%" on:click={onSearch}>
+	<Button class="p-2 mx-auto bg-success shadow border-round" style="width:30%" on:click={onSearch}>
 		Search &nbsp; <Icon name="search" />
 	</Button>
 </div>
@@ -133,7 +134,7 @@
 <div class="mx-auto" id="train-list">
 	{#if trains.length > 0}
 		{#each trains as train}
-			{#if (new Date(train.next_departure)).toDateString() == (new Date(formData.reDate)).toDateString()}
+			<!-- {#if (new Date(train.next_departure)).toDateString() == (new Date(formData.reDate)).toDateString()} -->
 				<Card class="mb-4 mx-md-5 mx-1 display-flex flex-column border-danger bg-white">
 					<CardHeader>
 						<CardTitle>
@@ -148,18 +149,18 @@
 						<CardBody>
 							<CardSubtitle><br>
 								<p class="alignleft text-center" style="font-size:0.7rem; white-space:pre-line">
-									<b>{replaceBracket(fromName())}</b> <br>
+									<b>{formData.fromName + "\n" + formData.fromDist}</b> <br>
 									{(new Date(train.next_departure)).toLocaleTimeString()} <br>
 									<small class="text-muted" >{(new Date(train.next_departure)).toDateString()}</small>
 								</p>
 								<p class="alignright text-center" style="font-size:0.7rem; white-space:pre-line">
-									<b>{replaceBracket(toName())}</b> <br>
-									{(new Date(train.next_arrival)).toLocaleTimeString()} <br>
-									<small class="text-muted" >{(new Date(train.next_arrival)).toDateString()}</small>
+									<b>{formData.toName + "\n" + formData.toDist}</b> <br>
+									{(new Date(train.next_journey_arrival)).toLocaleTimeString()} <br>
+									<small class="text-muted" >{(new Date(train.next_journey_arrival)).toDateString()}</small>
 								</p>
 								<div class="d-flex justify-content-center pt-2">
 								<p class="text-uppercase my-1 text-success" style="font-size:0.75rem; white-space:pre-line">
-									{prettyMilliseconds((new Date(train.next_arrival)).getTime() - new Date(train.next_departure).getTime())}
+									{prettyMilliseconds((new Date(train.next_journey_arrival)).getTime() - new Date(train.next_departure).getTime())}
 								</p></div><hr class="my-0 mx-5"/>
 								<br><br><br>
 							</CardSubtitle>
@@ -171,14 +172,14 @@
 					</Collapse>
 					<!-- <CardFooter>Footer</CardFooter> -->
 				</Card>
-			{/if}
+			<!-- {/if} -->
 		{/each}
 	{/if}
 </div>
 
 
 <style>
-	@import "bootstrap.min.css";
+	@import "https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css";
 
 	
 	@media only screen and (max-width: 768px) {

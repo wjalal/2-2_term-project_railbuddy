@@ -28,7 +28,7 @@
 </script>
 
 <div id="passform">
-	<h1>Change Password</h1>
+	<p class ='h1'>Change Password</p>
 	<Form class="my-5 d-flex flex-column justify-content-center">
 		<FormGroup floating label="Old Password">
 			<Input type="password" name="password0" id="password0" bind:value={password0}/>
