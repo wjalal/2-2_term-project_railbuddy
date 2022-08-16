@@ -1,40 +1,38 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.0/font/bootstrap-icons.css"/>
-
 <script>
 	import { onMount } from "svelte";
-	import { Styles, Form, FormGroup, Input, Button, Icon, Collapse, Label,
-    Card,
-    CardBody,
-    CardFooter,
-    CardHeader,
-    CardSubtitle,
-    CardText,
-    CardTitle,
-	Carousel,
-    CarouselControl,
-    CarouselIndicators,
-    CarouselItem,
-    CarouselCaption,
-	Col} from "sveltestrap";
+	import { 	Styles, Form, FormGroup, Input, Button, Icon, Collapse, Label, Card, CardBody, CardFooter, CardHeader, CardSubtitle, 
+				CardText, CardTitle, Carousel, CarouselControl, CarouselIndicators, CarouselItem, CarouselCaption,
+				Modal, ModalBody, ModalFooter, ModalHeader, Badge, Container, Row, Col } from "sveltestrap";
 	import axios from "axios";
 	import TrainInfo from "./ui/TrainInfo.svelte";
+	import TrainDetails from "./ui/TrainDetails.svelte";
 	import prettyMilliseconds from 'pretty-ms';
-
+	import Flatpickr from 'svelte-flatpickr';
+	import 'flatpickr/dist/flatpickr.css';
 	import Select from 'svelte-select';
-
+	import dayjs from 'dayjs';
 
 	let formData = {
 		from: 0, fromName: '', to: 0, toName: '', reDate: '', class: '', fromDist: '', toDist: '',
+		fromInput: null, toInput: null, reClass: '',
 		date: (new Date(Date.now() - (new Date()).getTimezoneOffset() * 60000)).toISOString().substring(0, 10),	
 	};
 
+	let detailedTrain;
+
+	const dow = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 	const optionIdentifier = 'id';
 	const labelIdentifier = 'name';
 	const groupBy = (station) => station.district;
 	let formStyle = "";
-	let stations = [], classes = [], trains = [];
+	let stations = [], classes = [], trains = [], isOpen, showTrainDetails = false;
 
-	const server = "";
+	const getStation = (station) => {
+		for (const s of stations) if (s.id === station.id) return s;
+	};
+
+	const server = 'http://[2401:f40:102c:1128:ffff:ffff:420:1d09]';
 
 	onMount (event => {
 		axios.defaults.withCredentials = true;
@@ -45,6 +43,7 @@
 		});
 		axios.post(`${server}/api/getClasses`).then(res => {
 			classes = res.data;
+			formData.class = 'SHOVAN';
 		}).catch(function (err) {
 			console.log(err);
 		});
@@ -53,16 +52,12 @@
 	const onSearch = (event) => {
 		event.preventDefault();
 		for (const st of stations) {
-            if (st.id == formData.to) {
-                formData.toName = st.name;
-				formData.toDist = st.district;
-            };
-			if (st.id == formData.from) {
-                formData.fromName = st.name;
-				formData.fromDist = st.district;
-            };
+            if (st.id == formData.to) formData.toInput = st, formData.toName = st.name, formData.toDist = st.district;
+			if (st.id == formData.from) formData.fromIinput = st, formData.fromName = st.name, formData.fromDist = st.district;
         };
+		formData.reClass = formData.class;
 		formData.reDate = formData.date;
+		axios.defaults.withCredentials = true;
 		axios.get(`${server}/search`, {
 			params: {
 				from: formData.from,
@@ -75,8 +70,10 @@
 				alert("No matching trains found!");		
 			} else {
 				trains = [...res.data.trains];
+				isOpen = Array(trains.length).fill(false);
+				for (let i=0; i<trains.length; i++) if (trains[i].has_desired_class) isOpen[i] = true;
 				console.log(trains);
-				formStyle = "flex-md-row"
+				formStyle = "flex-lg-row"
 				document.getElementById("searchform").style.width = "86vw";
 				document.getElementById("search-heading").style.textAlign = "center";
 				document.getElementById("search-heading").style.marginBottom = "5vh";
@@ -86,45 +83,50 @@
 		});
 		window.scrollTo(0, 800);
 	};
+
+	const collapse = (i) => {
+		isOpen[i] = !isOpen[i];
+	};
+	
 </script>
 
+
 <div id="searchform" class="my-5 d-flex flex-column justify-content-center">
-	<p id="search-heading" class="h2 mt-2 mb-4 mt-md-5">Search and Buy Tickets</p>
+	<p id="search-heading" class="h2 mt-2 mb-4 mt-md-5"><Icon name="search" />   Search and Buy Tickets</p>
 	<Form id = "searchformform" class="my-3 d-flex flex-column {formStyle} justify-content-center">
+		<FormGroup class="mx-1" >
+			<Label class="text-muted" for="to"><small>Start from (Origin Station)                     </small></Label>
+			<Select id = "from" {optionIdentifier} {labelIdentifier} items={stations} {groupBy} on:select={e => {formData.from = e.detail.id}}
+					containerStyles='height: calc(3.5rem + 2px); border-radius: 0.7rem' bind:value={formData.fromInput}/>
+		</FormGroup>
+		{#if formStyle === "flex-lg-row"}
+			<Button class="mx-lg-1 mx-auto border-success flimp" color="light" style='border-radius: 0.7rem'
+					on:click={e => {e.preventDefault(); [formData.toInput, formData.fromInput] = [formData.fromInput, formData.toInput]}} >
+				<Icon class='d-none d-lg-block' name="arrow-left-right" />
+				<Icon class='d-block d-lg-none' name="arrow-down-up" />
+			</Button>
+		{/if}
 		<FormGroup class="mx-1">
-			<!-- <Input type="select" name="from" id="from" bind:value={formData.from}>
-				{#each stations as st8n} 
-					<option value={st8n.id}> 
-						{st8n.name + (st8n.name !== "" ? `  (${st8n.district})` : "")}
-					</option>
-				{/each}
-			</Input> -->
-			<Label class="text-dark" for="to"><small>Start from</small></Label>
-			<Select id = "from" {optionIdentifier} {labelIdentifier} items={stations} {groupBy} on:select={e => {formData.from = e.detail.id}}/>
+			<Label class="text-muted" for="to"><small>Travel to (Destination Station)                      </small></Label>
+			<Select id="to" {optionIdentifier} {labelIdentifier} items={stations} {groupBy} on:select={e => {formData.to = e.detail.id}}
+					containerStyles='height: calc(3.5rem + 2px); border-radius: 0.7rem' bind:value={formData.toInput}/>
 		</FormGroup>
 		<FormGroup class="mx-1">
-			<!-- <Input type="select" name="to" id="to" bind:value={formData.to}>
-				{#each stations as st8n} 
-				<option value={st8n.id}> 
-					{st8n.name + (st8n.name !== "" ? `  (${st8n.district})` : "")}
-				</option>
-				{/each}
-			</Input> -->
-			<Label class="text-muted" for="to"><small>Travel to</small></Label>
-			<Select {optionIdentifier} {labelIdentifier} items={stations} {groupBy} on:select={e => {formData.to = e.detail.id}}/>
-		</FormGroup>
-		<FormGroup class="mx-1" floating label="Date of Travel">
-			<Input type="date" name="date" id="date" bind:value={formData.date}/>
-		</FormGroup>
-		<FormGroup class="mx-1" floating label="Class">
-			<Input type="select" name="class" id="class" bind:value={formData.class}>
+			<Label class="text-muted" for="date"><small>Date of Travel</small></Label>
+			<Flatpickr 	options={{dateFormat: "Y-m-d", minDate: "today", maxDate: dayjs().add(6, 'day').toDate()}} 
+				bind:formattedValue={formData.date} name="date" value={new Date()} class='rb-datepicker'/>
+			</FormGroup>
+		<FormGroup class="mx-1">
+			<Label class="text-muted" for="class"><small>Seating Class</small></Label>
+			<Input 	type="select" name="class" id="class" bind:value={formData.class}
+					style='height: calc(3.5rem + 2px); border-radius: 0.7rem'>
 				{#each classes as cls} 
-					<option>{cls}</option>
+					<option value={cls}>{cls}</option>
 				{/each}
 			</Input>
 		</FormGroup>
 	</Form>
-	<Button class="p-2 mx-auto bg-success shadow border-round" style="width:30%" on:click={onSearch}>
+	<Button class="p-2 mx-auto bg-success shadow" style="width:30%; border-radius:0.5rem" on:click={onSearch}>
 		Search &nbsp; <Icon name="search" />
 	</Button>
 </div>
@@ -133,41 +135,44 @@
 
 <div class="mx-auto" id="train-list">
 	{#if trains.length > 0}
-		{#each trains as train}
+		{#each trains as train, i(i)}
 			<!-- {#if (new Date(train.next_departure)).toDateString() == (new Date(formData.reDate)).toDateString()} -->
 				<Card class="mb-4 mx-md-5 mx-1 display-flex flex-column border-danger bg-white">
 					<CardHeader>
 						<CardTitle>
-							<b class='alignleft text-danger'>{train.name + " (" + train.id + ")"}</b>
-							<Button class='bg-transparent text-dark border-0' style="float:right" id={"tgl" + train.id}>
+							<b class='alignleft text-danger mt-2 mr-4'>{train.name + " (" + train.id + ")"}</b>
+							<Button class='bg-transparent text-dark border-0' style="float:right" on:click={() => collapse(i)}>
 								<Icon color="danger" name="arrows-collapse" />
 							</Button>	
 						</CardTitle>
 					</CardHeader>
 					
-					<Collapse toggler={"#tgl" + train.id}>
-						<CardBody>
-							<CardSubtitle><br>
-								<p class="alignleft text-center" style="font-size:0.7rem; white-space:pre-line">
-									<b>{formData.fromName + "\n" + formData.fromDist}</b> <br>
-									{(new Date(train.next_departure)).toLocaleTimeString()} <br>
-									<small class="text-muted" >{(new Date(train.next_departure)).toDateString()}</small>
-								</p>
-								<p class="alignright text-center" style="font-size:0.7rem; white-space:pre-line">
-									<b>{formData.toName + "\n" + formData.toDist}</b> <br>
-									{(new Date(train.next_journey_arrival)).toLocaleTimeString()} <br>
-									<small class="text-muted" >{(new Date(train.next_journey_arrival)).toDateString()}</small>
-								</p>
-								<div class="d-flex justify-content-center pt-2">
-								<p class="text-uppercase my-1 text-success" style="font-size:0.75rem; white-space:pre-line">
-									{prettyMilliseconds((new Date(train.next_journey_arrival)).getTime() - new Date(train.next_departure).getTime())}
-								</p></div><hr class="my-0 mx-5"/>
-								<br><br><br>
-							</CardSubtitle>
-							<CardText>
-								<TrainInfo train_id = {train.id} date={formData.reDate} server={server}/>
-							</CardText>
-						</CardBody>
+					<Collapse isOpen={isOpen[i]}>
+					<CardBody>
+						<CardSubtitle><br>
+							<p class="alignleft text-center" style="font-size:0.7rem; white-space:pre-line">
+								<b>{formData.fromName + "\n" + formData.fromDist}</b> <br>
+								{(new Date(train.next_departure)).toLocaleTimeString()} <br>
+								<small class="text-muted" >{(new Date(train.next_departure)).toDateString()}</small>
+							</p>
+							<p class="alignright text-center" style="font-size:0.7rem; white-space:pre-line">
+								<b>{formData.toName + "\n" + formData.toDist}</b> <br>
+								{(new Date(train.next_journey_arrival)).toLocaleTimeString()} <br>
+								<small class="text-muted" >{(new Date(train.next_journey_arrival)).toDateString()}</small>
+							</p>
+							<div class="d-flex justify-content-center pt-2">
+							<p class="text-uppercase my-1 text-success" style="font-size:0.75rem; white-space:pre-line">
+								{prettyMilliseconds((new Date(train.next_journey_arrival)).getTime() - new Date(train.next_departure).getTime())}
+							</p></div><hr class="my-0 mx-5"/>
+							<div class="d-flex justify-content-center pt-2">
+							<a class='text-danger' href={null} style='cursor: pointer; font-size: 0.6rem'
+									on:click={() => {detailedTrain = train, showTrainDetails = !showTrainDetails}}>(See Details)</a></div>
+							<br><br><br>
+						</CardSubtitle>
+						<CardText>
+							<TrainInfo 	train_id={train.id} date={formData.reDate} preferedClass={formData.reClass} server={server}/>
+						</CardText>
+					</CardBody>
 
 					</Collapse>
 					<!-- <CardFooter>Footer</CardFooter> -->
@@ -176,6 +181,18 @@
 		{/each}
 	{/if}
 </div>
+
+<Modal class='modal-dialog detail-card' isOpen={showTrainDetails} toggle={() => showTrainDetails = !showTrainDetails} size='xs'>
+	<ModalHeader toggle={() => showTrainDetails = !showTrainDetails}>
+		<b class='alignleft text-danger'>{detailedTrain.name + " (" + detailedTrain.id + ")"}</b><br>
+		<div class='d-flex flex-row mt-5 mb-3'>{#each Array(7) as _, i}
+			<Badge class='mx-1' color={detailedTrain.days[(i+2)%7]? 'success':'danger'}>
+				<small class='text-uppercase' style="font-size:0.7rem; white-space:pre-line">{dow[i]}</small>
+			</Badge>{/each}
+		</div>
+	</ModalHeader>
+	<TrainDetails train={detailedTrain} st1_id={formData.fromInput.id} st2_id={formData.toInput.id} date={formData.reDate} server={server}/>
+</Modal>
 
 
 <style>
@@ -213,6 +230,23 @@
 	}
 	.alignright {
 		float: right;
+	}
+
+	@media only screen and (min-width: 992px) {
+		:global(.flimp) {
+			margin-top: 2rem; 
+			height: calc(3.5rem + 2px); 
+			width: 3rem; 
+		}
+	}
+
+	@media only screen and (max-width: 992px) {
+		:global(.flimp) {
+			width: 2.6rem; 
+			margin-top: 0rem;
+			margin-bottom: 0.8rem;
+			box-shadow: none;
+		}
 	}
 
 

@@ -1,8 +1,8 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.0/font/bootstrap-icons.css"/>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Rubik">
-
 <script>
-	import { Styles, Collapse, Navbar, NavbarToggler, NavbarBrand, Nav, NavItem, NavLink, Dropdown, DropdownToggle, DropdownMenu,DropdownItem, Button, Icon } from "sveltestrap";
+	import { 	Styles, Collapse, Navbar, NavbarToggler, NavbarBrand, Nav, NavItem, NavLink, Dropdown, 
+				DropdownToggle, DropdownMenu, DropdownItem, Button, Icon } from "sveltestrap";
 	import { Router, Route, Link } from "svelte-navigator";
 	import Search from "./lib/Search.svelte";
 	import Login from "./lib/Login.svelte";
@@ -38,14 +38,14 @@
 
 </script>
 
-<Router>
+<Router primary={false}>
 	<header>
-		<Navbar id="rbnavbar" class="navbar fixed-top px-2 px-md-5 mx-md-5 border-bottom border-2 border-success shadow" 
+		<Navbar id="rbnavbar" class="fixed-top px-2 border-bottom border-2 border-success shadow" 
 				style='background-color: rgb(225, 251, 220)' light expand="md">
 			<NavbarBrand href="/">
 				<div style="display:flex; align-items:center; gap:2vw">
 					<img id="railbuddy-logo" src={railbuddyLogo} alt="RailBuddy logo">
-					<b class='h6' id="nav-title">Smart e-Ticketing Platform</b>
+					<b class='h6 mt-2' id="nav-title">Smart e-Ticketing Platform</b>
 				</div>	
 			</NavbarBrand>
 			<NavbarToggler on:click={() => (isOpen = !isOpen)} />
@@ -152,11 +152,21 @@
 		#nav-title {
 			visibility: hidden;	
 		}
+
+		:global(#rbnavbar) {
+			padding-left: 4.5rem !important;
+			padding-right: 4.5rem !important;
+		}
 	}
 
-	@media only screen and (min-width: 1200px) {
+	@media only screen and (min-width: 1220px) {
 		#nav-title {
 			visibility: visible;	
+		}
+
+		:global(#rbnavbar) {
+			padding-left: 6.5rem !important;
+			padding-right: 6.5rem !important;
 		}
 	}
 
@@ -169,6 +179,15 @@
 	:global(body){ 
 		background-color: rgb(250, 255, 240);
 		font-family: "Rubik", sans-serif;
+	}
+
+	:global(.rb-datepicker) {
+		width:100%; 
+		height: calc(3.5rem + 2px); 
+		border-radius: 0.7rem; 
+		border-width:1.5px; 
+		border-color: var(--bs-muted); 
+		padding:1rem; 
 	}
 
 </style>

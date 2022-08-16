@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host",
+    "dev": "BACEKND='http://localhost' vite --host",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -14,12 +14,17 @@
     "vite": "^3.0.0"
   },
   "dependencies": {
+    "@beyonk/svelte-datepicker": "^12.0.1",
     "axios": "^0.27.2",
     "bootstrap": "^5.2.0",
     "cors": "^2.8.5",
+    "dayjs": "^1.11.5",
     "pretty-ms": "^8.0.0",
+    "svelte-calendar": "^3.1.6",
+    "svelte-flatpickr": "^3.2.6",
     "svelte-navigator": "^3.1.6",
     "svelte-select": "^4.4.7",
+    "svelte-tree-view-component": "^1.0.3",
     "sveltestrap": "^5.9.0"
   }
 }

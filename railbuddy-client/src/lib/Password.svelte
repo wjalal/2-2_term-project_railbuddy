@@ -4,7 +4,7 @@
 
 	let password0 = '', password = '', password2 = '';
 
-	const onLogin = (event) => {
+	const onSubmit = (event) => {
 		event.preventDefault();
 		if (password === password2) {
 			axios.defaults.withCredentials = true;
@@ -39,7 +39,7 @@
 		<FormGroup floating label="Confirm New Password">
 			<Input type="password" name="password2" id="password2" bind:value={password2}/>
 		</FormGroup><br>
-		<Button class="w-50 p-2 mx-auto" color='danger' on:click={onLogin}>Submit</Button>
+		<Button class="w-50 p-2 mx-auto" color='danger' on:click={onSubmit}>Submit</Button>
 	</Form>
 </div>
 

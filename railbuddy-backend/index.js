@@ -9,6 +9,9 @@ const cookieParser = require('cookie-parser');
 const otpGenerator = require('otp-generator');
 const axios = require('axios');
 const crypto = require('crypto');
+const dotenv = require('dotenv');
+
+dotenv.config();
 
 app.use(bodyParser.json());
 app.use(cookieParser());
@@ -19,6 +22,8 @@ app.use(cors({
     origin: 'http://localhost:5173',
     credentials: true
 }));
+
+console.log(process.env.SESSION_SECRET);
 
 const getSHA256 = (input) => {
     return crypto.createHash('sha256').update(JSON.stringify(input)).digest('hex');
@@ -33,7 +38,7 @@ const getMD5 = (input) => {
 };
 
 app.use(session({
-    secret: 'এইটো হৈছে ৰেলৱে ৱেবছাইটৰ সুৰক্ষা নিশ্চিত কৰিবলৈ ডাঙৰ এক্সপ্রেছ চেছনৰ ডাঙৰ অসমীয়া চিকৰেট',
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: true,
     sameSite: 'none',
@@ -49,21 +54,14 @@ app.use(session({
 const { Pool, Client } = require('pg')
 
 const dbclient = new Client({
-  user: 'postgres',
-  host: 'localhost',
-  database: 'railbuddy',
-  password: 'bogmbogm2',
-  port: 5432,
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASS,
+  port: process.env.DB_PORT,
 });
 
 dbclient.connect();
-
-// dbclient.query(
-//     `SELECT COUNT(*) FROM customer WHERE mobile='556'`
-// ).then(qres => {
-//     console.log(qres.rows[0].count);
-    
-// }).catch(e => console.error(e.stack));
 
 app.post('/api/login', (req, res) => {
     console.log(req.body);
@@ -252,10 +250,10 @@ app.get('/search', (req, res) => {
         if ((new Date(req.query.date)).toISOString().substring(0,10) == (new Date()).toISOString().substring(0,10)) {
             console.log ("searching trains after NOW");
             dbclient.query(`select *, get_station_name(origin) as oname, get_station_name(dest) as dname, 
-                            next_journey_arrival(id, $1, $2, NOW()), next_departure(id, $1, NOW())
+                            next_journey_arrival(id, $1, $2, NOW()), next_departure(id, $1, NOW()), train_has_class(id, $3) as has_desired_class
                             from train 
                             where id in (select tr_id from connecting_trains($1, $2))`,
-                            [req.query.from, req.query.to]
+                            [req.query.from, req.query.to, req.query.class]
             ).then(qres => {
                 if (qres.rows.length === 0) res.send ( {success: false} );
                 else res.send ( {success: true, trains: qres.rows});
@@ -263,10 +261,10 @@ app.get('/search', (req, res) => {
         } else {
             console.log ("searching trains after" + req.query.date);
             dbclient.query(`select *, get_station_name(origin) as oname, get_station_name(dest) as dname, 
-                            next_journey_arrival(id, $1, $2, $3::timestamp), next_departure(id, $1, $3::timestamp)
-                            from train 
+                            next_journey_arrival(id, $1, $2, $3::timestamp), next_departure(id, $1, $3::timestamp), train_has_class(id, $4)
+                            as has_desired_class from train 
                             where id in (select tr_id from connecting_trains($1, $2))`,
-                            [req.query.from, req.query.to, req.query.date]
+                            [req.query.from, req.query.to, req.query.date, req.query.class]
             ).then(qres => {
                 if (qres.rows.length === 0) res.send ( {success: false} );
                 else res.send ( {success: true, trains: qres.rows});
@@ -300,6 +298,26 @@ app.post('/api/checkSeats', (req, res) => {
     }).catch(e => console.error(e.stack));
 }); 
 
+app.post('/api/getRoute', (req, res) => {
+    console.log (req.body);
+    let queryDateStr;
+    if ((new Date(req.body.date)).toISOString().substring(0,10) == (new Date()).toISOString().substring(0,10)) {
+        dbclient.query(`SELECT * from route_detail ($1, $2, $3, NOW());`,
+        [req.body.train_id, req.body.st1_id, req.body.st2_id]
+        ).then(qres => {
+            if (qres.rows.length === 0) res.send ( {success: false} );
+            else res.send ( {success: true, route: qres.rows});
+        }).catch(e => console.error(e.stack));
+    } else {
+        dbclient.query(`SELECT * from route_detail ($1, $2, $3, $4::timestamp);`,
+        [req.body.train_id, req.body.st1_id, req.body.st2_id, req.body.date]
+        ).then(qres => {
+            if (qres.rows.length === 0) res.send ( {success: false} );
+            else res.send ( {success: true, route: qres.rows});
+        }).catch(e => console.error(e.stack));
+    }
+}); 
+
 app.post('/api/validateSendNewMobileOTP', (req, res) => {
     if (req.session.userid) {
         console.log(req.body);
@@ -312,7 +330,7 @@ app.post('/api/validateSendNewMobileOTP', (req, res) => {
                 success: false,
             });
             else {
-                req.session.pwdChangeValidity = getSHA256(req.session.userid + 'এইটো সৰু একটো চিকৰেট');
+                req.session.pwdChangeValidity = getSHA256(req.session.userid + process.env.CHANGE_SECRET);
                 res.send({
                     success: true,
                 });
@@ -328,7 +346,7 @@ app.post('/api/validateSendNewMobileOTP', (req, res) => {
 });
 
 app.post('/api/sendNewMobileOTP', (req, res) => {
-    if (req.session.userid && req.session.pwdChangeValidity == getSHA256(req.session.userid + 'এইটো সৰু একটো চিকৰেট')) {
+    if (req.session.userid && req.session.pwdChangeValidity == getSHA256(req.session.userid + process.env.CHANGE_SECRET)) {
         dbclient.query (
             "CALL UPSERT_OTP($2, $1); ",
             [otpGenerator.generate(6, {
@@ -352,7 +370,7 @@ app.post('/api/sendNewMobileOTP', (req, res) => {
 
 
 app.post('/api/changePassword', (req, res) => {
-    if (req.session.userid && req.session.pwdChangeValidity == getSHA256(req.session.userid + 'এইটো সৰু একটো চিকৰেট')) {
+    if (req.session.userid && req.session.pwdChangeValidity == getSHA256(req.session.userid + process.env.CHANGE_SECRET)) {
         console.log(req.body);
         dbclient.query (
             "UPDATE customer SET mobile=$1 where mobile=$2 AND password=$3 AND (SELECT otp FROM otp WHERE mobile=$1) = $4",
