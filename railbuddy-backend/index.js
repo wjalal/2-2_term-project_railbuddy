@@ -18,10 +18,7 @@ app.use(cookieParser());
 
 app.enable('trust proxy');
 // app.use(cors());
-app.use(cors({
-    origin: 'http://localhost:5173',
-    credentials: true
-}));
+app.use(cors());
 
 console.log(process.env.SESSION_SECRET);
 
@@ -243,34 +240,30 @@ app.post('/api/getClasses', (req,res) => {
     }).catch(e => console.error(e.stack));
 });
 
-app.get('/search', (req, res) => {
-    if (Object.keys(req.query).length === 0) 
-        res.sendFile(path.resolve(__dirname, '../railbuddy-client/dist', 'index.html'));
-    else {
-        if ((new Date(req.query.date)).toISOString().substring(0,10) == (new Date()).toISOString().substring(0,10)) {
-            console.log ("searching trains after NOW");
-            dbclient.query(`select *, get_station_name(origin) as oname, get_station_name(dest) as dname, 
-                            next_journey_arrival(id, $1, $2, NOW()), next_departure(id, $1, NOW()), train_has_class(id, $3) as has_desired_class
-                            from train 
-                            where id in (select tr_id from connecting_trains($1, $2))`,
-                            [req.query.from, req.query.to, req.query.class]
-            ).then(qres => {
-                if (qres.rows.length === 0) res.send ( {success: false} );
-                else res.send ( {success: true, trains: qres.rows});
-            }).catch(e => console.error(e.stack));
-        } else {
-            console.log ("searching trains after" + req.query.date);
-            dbclient.query(`select *, get_station_name(origin) as oname, get_station_name(dest) as dname, 
-                            next_journey_arrival(id, $1, $2, $3::timestamp), next_departure(id, $1, $3::timestamp), train_has_class(id, $4)
-                            as has_desired_class from train 
-                            where id in (select tr_id from connecting_trains($1, $2))`,
-                            [req.query.from, req.query.to, req.query.date, req.query.class]
-            ).then(qres => {
-                if (qres.rows.length === 0) res.send ( {success: false} );
-                else res.send ( {success: true, trains: qres.rows});
-            }).catch(e => console.error(e.stack));
-        }
-    };
+app.post('/api/search', (req, res) => {
+    if ((new Date(req.body.date)).toISOString().substring(0,10) == (new Date()).toISOString().substring(0,10)) {
+        console.log ("searching trains after NOW");
+        dbclient.query(`select *, get_station_name(origin) as oname, get_station_name(dest) as dname, 
+                        next_journey_arrival(id, $1, $2, NOW()), next_departure(id, $1, NOW()), train_has_class(id, $3) as has_desired_class
+                        from train 
+                        where id in (select tr_id from connecting_trains($1, $2))`,
+                        [req.body.from, req.body.to, req.body.class]
+        ).then(qres => {
+            if (qres.rows.length === 0) res.send ( {success: false} );
+            else res.send ( {success: true, trains: qres.rows});
+        }).catch(e => console.error(e.stack));
+    } else {
+        console.log ("searching trains after" + req.body.date);
+        dbclient.query(`select *, get_station_name(origin) as oname, get_station_name(dest) as dname, 
+                        next_journey_arrival(id, $1, $2, $3::timestamp), next_departure(id, $1, $3::timestamp), train_has_class(id, $4)
+                        as has_desired_class from train 
+                        where id in (select tr_id from connecting_trains($1, $2))`,
+                        [req.body.from, req.body.to, req.body.date, req.body.class]
+        ).then(qres => {
+            if (qres.rows.length === 0) res.send ( {success: false} );
+            else res.send ( {success: true, trains: qres.rows});
+        }).catch(e => console.error(e.stack));
+    }
 }); 
 
 app.post('/api/getCoaches', (req, res) => {

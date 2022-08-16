@@ -32,39 +32,49 @@
 		for (const s of stations) if (s.id === station.id) return s;
 	};
 
-	const server = 'http://[2401:f40:102c:1128:ffff:ffff:420:1d09]';
+	const server = '';
 
 	onMount (event => {
-		axios.defaults.withCredentials = true;
-		axios.post(`${server}/api/getStations`).then(res => {
-			stations = [...res.data];
-		}).catch(function (err) {
-			console.log(err);
-		});
 		axios.post(`${server}/api/getClasses`).then(res => {
 			classes = res.data;
 			formData.class = 'SHOVAN';
 		}).catch(function (err) {
 			console.log(err);
 		});
+
+		axios.defaults.withCredentials = true;
+		axios.post(`${server}/api/getStations`).then(res => {
+			stations = [...res.data];
+		}).then(res => {
+			const urlParams = new URLSearchParams(window.location.search);
+			if (urlParams.get('class') != null && urlParams.get('from') != null && urlParams.get('to') != null && urlParams.get('date') != null) {
+				console.log(urlParams.get('class'));
+				formData.from = Number(urlParams.get('from'));
+				formData.to = Number(urlParams.get('to'));
+				formData.date = urlParams.get('date');
+				formData.class = urlParams.get('class');
+				onSearch();
+			};
+		}).catch(function (err) {
+			console.log(err);
+		});
+
 	});
 
-	const onSearch = (event) => {
-		event.preventDefault();
+	const onSearch = () => {
+		console.log(stations);
 		for (const st of stations) {
             if (st.id == formData.to) formData.toInput = st, formData.toName = st.name, formData.toDist = st.district;
-			if (st.id == formData.from) formData.fromIinput = st, formData.fromName = st.name, formData.fromDist = st.district;
+			if (st.id == formData.from) formData.fromInput = st, formData.fromName = st.name, formData.fromDist = st.district;
         };
 		formData.reClass = formData.class;
 		formData.reDate = formData.date;
 		axios.defaults.withCredentials = true;
-		axios.get(`${server}/search`, {
-			params: {
+		axios.post (`${server}/api/search`, {
 				from: formData.from,
 				to: formData.to,
 				date: formData.date,
 				class: formData.class
-			}
 		}).then(res => {
 			if (res.data.success === false) {
 				alert("No matching trains found!");		
@@ -77,6 +87,8 @@
 				document.getElementById("searchform").style.width = "86vw";
 				document.getElementById("search-heading").style.textAlign = "center";
 				document.getElementById("search-heading").style.marginBottom = "5vh";
+				window.history.pushState (formData, `${formData.fromName} to ${formData.toName} — RailBuddy`, 
+								`search?from=${formData.from}&to=${formData.to}&date=${formData.date}&class=${formData.class}`);
 			};
 		}).catch(function (err) {
 			console.log(err);
