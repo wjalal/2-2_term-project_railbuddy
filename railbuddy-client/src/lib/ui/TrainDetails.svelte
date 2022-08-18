@@ -39,7 +39,10 @@
 		<TreeLeaf>
 			<Card class='border-success border-2 mb-1 bg-light route-card' >
 				<CardHeader>
-					<CardTitle>{`${stop.station_name} (${stop.station_id})`}</CardTitle>
+					<CardTitle><a class='text-success fw-bold' style='font-size: 1.2rem; pointer' target="_blank"
+						href={`https://www.google.com/maps/@?api=1&map_action=map&center=${stop.station_coords.x}%2C${stop.station_coords.y}&zoom=18`}>
+						<Icon name="map-fill" /> {`${stop.station_name} (${stop.station_id})`}
+					</a></CardTitle>
 				</CardHeader>
 				<CardBody>
 					<Container>

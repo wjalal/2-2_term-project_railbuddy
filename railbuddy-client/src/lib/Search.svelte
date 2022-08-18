@@ -28,37 +28,34 @@
 	let formStyle = "";
 	let stations = [], classes = [], trains = [], isOpen, showTrainDetails = false;
 
-	const getStation = (station) => {
-		for (const s of stations) if (s.id === station.id) return s;
-	};
-
-	const server = '';
+	const server = 'http://localhost';
 
 	onMount (event => {
 		axios.post(`${server}/api/getClasses`).then(res => {
 			classes = res.data;
 			formData.class = 'SHOVAN';
+		}).then(red => {
+
+			axios.defaults.withCredentials = true;
+			axios.post(`${server}/api/getStations`).then(res => {
+				stations = [...res.data];
+			}).then(res => {
+				const urlParams = new URLSearchParams(window.location.search);
+				if (urlParams.get('class') != null && urlParams.get('from') != null && urlParams.get('to') != null && urlParams.get('date') != null) {
+					console.log(urlParams.get('class'));
+					formData.from = Number(urlParams.get('from'));
+					formData.to = Number(urlParams.get('to'));
+					formData.date = urlParams.get('date');
+					formData.class = urlParams.get('class');
+					onSearch();
+				};
+			}).catch(function (err) {
+				console.log(err);
+			});
+
 		}).catch(function (err) {
 			console.log(err);
 		});
-
-		axios.defaults.withCredentials = true;
-		axios.post(`${server}/api/getStations`).then(res => {
-			stations = [...res.data];
-		}).then(res => {
-			const urlParams = new URLSearchParams(window.location.search);
-			if (urlParams.get('class') != null && urlParams.get('from') != null && urlParams.get('to') != null && urlParams.get('date') != null) {
-				console.log(urlParams.get('class'));
-				formData.from = Number(urlParams.get('from'));
-				formData.to = Number(urlParams.get('to'));
-				formData.date = urlParams.get('date');
-				formData.class = urlParams.get('class');
-				onSearch();
-			};
-		}).catch(function (err) {
-			console.log(err);
-		});
-
 	});
 
 	const onSearch = () => {
@@ -182,7 +179,8 @@
 							<br><br><br>
 						</CardSubtitle>
 						<CardText>
-							<TrainInfo 	train_id={train.id} date={formData.reDate} preferedClass={formData.reClass} server={server}/>
+							<TrainInfo 	train_id={train.id} st1_id={formData.fromInput.id} st2_id={formData.toInput.id} 
+										date={formData.reDate} preferedClass={formData.reClass} server={server}/>
 						</CardText>
 					</CardBody>
 

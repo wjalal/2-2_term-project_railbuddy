@@ -1,7 +1,7 @@
 <script>
 	import { Styles, Form, FormGroup, Input, Button, Label } from "sveltestrap";
 	import axios from "axios";
-
+	import {userName} from "../userStore"; 
 	let formData = {
 		mobile: '',
 		password: '',
@@ -15,6 +15,7 @@
 		}).then(res => {
 			if (res.data.success) {
 				console.log(res);
+				userName.set(res.data.name);
 				localStorage.setItem('railbuddyUserName', res.data.name);
 				window.location.href = '/';
 			} else {

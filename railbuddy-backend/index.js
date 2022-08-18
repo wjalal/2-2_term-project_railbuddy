@@ -18,7 +18,10 @@ app.use(cookieParser());
 
 app.enable('trust proxy');
 // app.use(cors());
-app.use(cors());
+app.use(cors({
+    origin: 'http://localhost:5173',
+    credentials: true
+}));
 
 console.log(process.env.SESSION_SECRET);
 
@@ -185,6 +188,27 @@ app.post('/api/getProfile', (req, res) => {
     };
 });
 
+app.post('/api/getSelfID', (req, res) => {
+    console.log(req.session);
+    if (req.session.userid) {
+        dbclient.query(
+            "SELECT nid, name FROM customer WHERE mobile=$1", 
+            [req.session.userid]
+        ).then(qres => {
+            //console.log(qres);
+            if (qres.rows.length === 0) res.send({ 
+                success: false,
+            });
+            else {
+                res.send({
+                    ...qres.rows[0],
+                    success: true,
+                });
+            };
+        }).catch(e => console.error(e.stack));
+    };
+});
+
 app.post('/api/updateUser', (req,res) => {
     let attr = req.body.attr;
     if (req.session.userid === req.body.mobile) {
@@ -272,8 +296,12 @@ app.post('/api/getCoaches', (req, res) => {
                     get_vacancy(class_id, $2) as vacancy from (select * from bogie order by fare desc) bogie where train_id=$1`,
     [req.body.id, req.body.date]
     ).then(qres => {
-        if (qres.rows.length === 0) res.send ( {success: false} );
-        else res.send ( {success: true, classes: qres.rows});
+        dbclient.query(`SELECT station_id, station_name from route_detail ($1, $2, $3, $4::timestamp);`,
+        [req.body.id, req.body.st1_id, req.body.st2_id, req.body.date]
+        ).then(qres2 => {
+            if (qres.rows.length === 0 || qres.rows.length === 0 ) res.send ( {success: false} );
+            else res.send ( {success: true, route: qres2.rows, classes: qres.rows});
+        }).catch(e => console.error(e.stack));
     }).catch(e => console.error(e.stack));
 }); 
 
@@ -293,7 +321,6 @@ app.post('/api/checkSeats', (req, res) => {
 
 app.post('/api/getRoute', (req, res) => {
     console.log (req.body);
-    let queryDateStr;
     if ((new Date(req.body.date)).toISOString().substring(0,10) == (new Date()).toISOString().substring(0,10)) {
         dbclient.query(`SELECT * from route_detail ($1, $2, $3, NOW());`,
         [req.body.train_id, req.body.st1_id, req.body.st2_id]

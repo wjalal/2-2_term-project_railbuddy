@@ -12,9 +12,14 @@
 	import UpdateMobile from "./lib/UpdateMobile.svelte";
 	import railbuddyLogo from "./assets/railBuddy.png";
 	import axios from 'axios';
+	import { userName } from "./userStore.js";
 
+	let currentUser;
+	userName.subscribe(value => {
+		currentUser = value;
+	});
+		
 	let isOpen = false;
-	$: userName = localStorage.getItem('railbuddyUserName');
 
 	const onLogout = (event) => {
 		event.preventDefault();
@@ -28,6 +33,7 @@
 		}).catch(function (err) {
 			console.log(err);
 			localStorage.removeItem('railbuddyUserName');
+			userName.set(null);
 			alert("Failed to log out!");
 		});
 	};
@@ -54,7 +60,7 @@
 				<NavItem class='mx-lg-2'>
 					<NavLink href="/">  Search / Buy</NavLink>
 				</NavItem>
-				{#if userName === null}
+				{#if currentUser === null}
 					<NavItem class='mx-lg-2'>
 						<NavLink href="login">Login</NavLink>
 					</NavItem>
@@ -80,11 +86,11 @@
 					</DropdownItem>
 					</DropdownMenu>
 				</Dropdown>
-				{#if userName !== null}
+				{#if currentUser !== null}
 					<Dropdown class="mx-md-4 mt-4 mt-md-0" nav inNavbar>
 						<DropdownToggle nav caret>
 							<Icon name="person-circle" />
-							<b>{`${userName}`}</b> 
+							<b>{`${currentUser}`}</b> 
 						</DropdownToggle>
 						<DropdownMenu end>
 						<DropdownItem>
