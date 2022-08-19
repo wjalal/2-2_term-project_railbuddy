@@ -1,3 +1,3 @@
 import { writable } from 'svelte/store';
 
-export const userName = writable(localStorage.getItem('railbuddyUserName'));
+export const userName = writable();

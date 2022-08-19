@@ -2,6 +2,12 @@
 	import { Styles, Form, FormGroup, Input, Button, Label } from "sveltestrap";
 	import axios from "axios";
 	import {userName} from "../userStore"; 
+
+	let currentUser;
+	userName.subscribe(value => {
+		currentUser = value;
+	});
+
 	let formData = {
 		mobile: '',
 		password: '',
@@ -16,7 +22,6 @@
 			if (res.data.success) {
 				console.log(res);
 				userName.set(res.data.name);
-				localStorage.setItem('railbuddyUserName', res.data.name);
 				window.location.href = '/';
 			} else {
 				alert("No matching credentials found!");

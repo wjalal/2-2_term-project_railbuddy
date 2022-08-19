@@ -2,6 +2,13 @@
 	import { Styles, Form, FormGroup, Input, Button, Table } from "sveltestrap";
 	import axios from "axios";
 
+	import { userName } from "../userStore.js";
+
+	let currentUser;
+	userName.subscribe(value => {
+		currentUser = value;
+	});
+
 	let formData = {
 		newMobile: '', newMobile2: '',
 		otp: '', password: '',
@@ -24,7 +31,7 @@
 					formData.showPassword = false;
 				} else {
 					alert (`Your password has not matched.`); 
-					localStorage.removeItem('railbuddyUserName');
+					userName.set(null);
 					window.location.href = 'login';
 				};
 			}).catch (err => {
@@ -42,7 +49,7 @@
 						formData.disableMobile = true;
 						formData.showOTP = true;
 					} else {
-						localStorage.removeItem('railbuddyUserName');
+						userName.set(null);
 						alert (`Failed to send OTP`); 
 						window.location.href = 'login';
 					};
@@ -59,11 +66,11 @@
 				console.log(res);
 				if (res.data.success === false) {
 					alert ("Password update failed.");
-					localStorage.removeItem('railbuddyUserName');
+					userName.set(null);
 					window.location.href = 'login';
 				} else if (res.data.success === true) {
 					alert ("Your password was successfully changed.");
-					localStorage.removeItem('railbuddyUserName');
+					userName.set(null);
 					window.location.href = 'login';
 				};
 			}).catch (err => {

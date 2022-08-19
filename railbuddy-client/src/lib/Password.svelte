@@ -1,7 +1,12 @@
 <script>
 	import { Styles, Form, FormGroup, Input, Button, Label } from "sveltestrap";
 	import axios from "axios";
+	import { userName } from "../userStore.js";
 
+	let currentUser;
+	userName.subscribe(value => {
+		currentUser = value;
+	});
 	let password0 = '', password = '', password2 = '';
 
 	const onSubmit = (event) => {
@@ -15,7 +20,7 @@
 				if (res.data.success === true) {
 					console.log(res);
 					alert("Password change successful! Please log in with new password.")
-					localStorage.removeItem('railbuddyUserName');
+					userName.set(null);
 					window.location.href = '/login';
 				} else {
 					alert("Failed to update. Old password might not have matched.");

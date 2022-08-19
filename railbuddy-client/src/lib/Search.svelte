@@ -260,4 +260,24 @@
 	}
 
 
+	:global(.rb-datepicker) {
+		width:100%; 
+		height: calc(3.5rem + 2px); 
+		border-radius: 0.7rem; 
+		border-width: 1px; 
+		border-style: solid !important;
+		padding:1rem; 
+	}
+
+	:global(input.rb-datepicker:focus-visible) {
+		outline-width: 0px !important;
+		border-color: rgb(53, 135, 202) !important; 
+	} 
+
+	:global(input.rb-datepicker) {
+		background-color: white !important;
+		border-color: rgb(223, 223, 223) !important; 
+	}
+
+
 </style>

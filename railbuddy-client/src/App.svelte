@@ -3,18 +3,37 @@
 <script>
 	import { 	Styles, Collapse, Navbar, NavbarToggler, NavbarBrand, Nav, NavItem, NavLink, Dropdown, 
 				DropdownToggle, DropdownMenu, DropdownItem, Button, Icon } from "sveltestrap";
+	import { onMount } from "svelte";
 	import { Router, Route, Link } from "svelte-navigator";
 	import Search from "./lib/Search.svelte";
 	import Login from "./lib/Login.svelte";
 	import Register from "./lib/Register.svelte";
 	import Profile from "./lib/Profile.svelte"; 
 	import Purchases from "./lib/Purchases.svelte"; 
+	import PayMessage from "./lib/PayMessage.svelte"; 
 	import Password from "./lib/Password.svelte";
 	import UpdateMobile from "./lib/UpdateMobile.svelte";
 	import AdminLogin from "./lib/AdminLogin.svelte";
+	import TicketVerif from "./lib/TicketVerif.svelte";
 	import railbuddyLogo from "./assets/railBuddy.png";
 	import axios from 'axios';
 	import { userName } from "./userStore.js";
+
+	const server = '';
+	
+	onMount (event => {
+		axios.defaults.withCredentials = true;
+		axios.post(`${server}/api/getSession`).then(res => {
+			if (res.data.success === true) {
+				userName.set(res.data.name);
+			} else {
+				userName.set(null);
+				//window.location.reload();
+			};
+		}).catch(function (err) {
+			console.log(err);
+		});
+	});
 
 	let currentUser;
 	userName.subscribe(value => {
@@ -29,12 +48,11 @@
 		axios.post("/api/logout", {
 			logout: true
 		}).then(res => {
-			localStorage.removeItem('railbuddyUserName');
+			userName.set(null);
 			if (res.data.success) window.location.href = '/';
 			else alert("Failed to log out!");
 		}).catch(function (err) {
 			console.log(err);
-			localStorage.removeItem('railbuddyUserName');
 			userName.set(null);
 			alert("Failed to log out!");
 		});
@@ -94,7 +112,7 @@
 							<Icon name="person-circle" />
 							<b>{`${currentUser}`}</b> 
 						</DropdownToggle>
-						<DropdownMenu end>
+						<DropdownMenu style='background-color: rgb(225, 251, 220)' end>
 						<DropdownItem>
 							<Link class='text-dark' to= "profile">My Profile / Preferences</Link>
 						</DropdownItem>
@@ -103,7 +121,7 @@
 						</DropdownItem>
 						<DropdownItem divider />
 						<DropdownItem>
-							<Button class="w-100" color="light" on:click={onLogout}>Log out</Button>
+							<Button class="w-100 border-danger" color="light" on:click={onLogout}>Log out</Button>
 						</DropdownItem>
 						</DropdownMenu>
 					</Dropdown>
@@ -116,33 +134,19 @@
 
 	<main>
 		<br><br><br><br>
-		<Route path="/">
-			<Search/>
-		</Route>
-		<Route path="search">
-			<Search/>
-		</Route>
-		<Route path="login">
-			<Login/>
-		</Route>
-		<Route path="register">
-			<Register/>
-		</Route>
-		<Route path="profile">
-			<Profile/>
-		</Route>
-		<Route path="password">
-			<Password/>
-		</Route>
-		<Route path="update-mobile">
-			<UpdateMobile/>
-		</Route>
-		<Route path="purchases">
-			<Purchases/>
-		</Route>
-		<Route path="admin-login">
-			<AdminLogin/>
-		</Route>
+		<Route path="/">			<Search/>					</Route>
+		<Route path="search">		<Search/>					</Route>
+		<Route path="login">		<Login/>					</Route>
+		<Route path="register">		<Register/>					</Route>
+		<Route path="profile">		<Profile/>					</Route>
+		<Route path="password">		<Password/>					</Route>
+		<Route path="update-mobile"><UpdateMobile/>				</Route>
+		<Route path="purchases">	<Purchases/>				</Route>
+		<Route path="admin-login">	<AdminLogin/>				</Route>
+		<Route path="pay_success">	<PayMessage mode='success'/></Route>
+		<Route path="pay_fail">		<PayMessage mode='fail'/>	</Route>
+		<Route path="pay_cancel">	<PayMessage mode='cancel'/>	</Route>
+		<Route path="verif">		<TicketVerif/>				</Route>
 	</main>
 </Router>
 
@@ -193,15 +197,6 @@
 	:global(body){ 
 		background-color: rgb(250, 255, 240);
 		font-family: "Rubik", sans-serif;
-	}
-
-	:global(.rb-datepicker) {
-		width:100%; 
-		height: calc(3.5rem + 2px); 
-		border-radius: 0.7rem; 
-		border-width:1.5px; 
-		border-color: var(--bs-muted); 
-		padding:1rem; 
 	}
 
 </style>

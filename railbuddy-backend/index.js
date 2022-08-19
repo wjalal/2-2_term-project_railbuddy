@@ -10,10 +10,12 @@ const otpGenerator = require('otp-generator');
 const axios = require('axios');
 const crypto = require('crypto');
 const dotenv = require('dotenv');
+const url = require('url')
 
 dotenv.config();
 
 app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.enable('trust proxy');
@@ -22,6 +24,11 @@ app.use(cors({
     origin: 'http://localhost:5173',
     credentials: true
 }));
+
+const SSLCommerzPayment = require('sslcommerz-lts')
+const store_id = process.env.SSLCZ_STORE_ID;
+const store_passwd = process.env.SSLCZ_PASSWORD;
+const is_live = false;
 
 console.log(process.env.SESSION_SECRET);
 
@@ -51,7 +58,8 @@ app.use(session({
 
 
 
-const { Pool, Client } = require('pg')
+const { Pool, Client } = require('pg');
+const e = require('express');
 
 const dbclient = new Client({
   user: process.env.DB_USER,
@@ -62,6 +70,30 @@ const dbclient = new Client({
 });
 
 dbclient.connect();
+
+app.post('/api/getSession',(req,res) => {
+    if (req.session.userid) {
+        dbclient.query(
+            `SELECT name FROM customer WHERE mobile=$1`,
+            [req.session.userid]
+        ).then(qres => {
+            res.send({
+                success: true,
+                name: qres.rows[0].name
+            });
+        }).catch(e => {
+            req.session.destroy();
+            res.send({
+                success: false,
+            });
+            console.error(e.stack)
+        });
+    } else {
+        res.send({
+            success: false,
+        });
+    }
+});
 
 app.post('/api/login', (req, res) => {
     console.log(req.body);
@@ -319,7 +351,8 @@ app.post('/api/checkSeats', (req, res) => {
     }).catch(e => console.error(e.stack));
 }); 
 
-app.post('/api/purchaseTicket', (req, res) => {
+
+app.post('/api/initPurchase', (req, res) => {
     const t_no = req.body.seatList.length;
     console.log(req.body, t_no);
     if (req.session.userid && t_no <= 4 && t_no >= 0) { 
@@ -330,16 +363,92 @@ app.post('/api/purchaseTicket', (req, res) => {
             r[i] = req.body.seatList[i].r + 1, c[i] = req.body.seatList[i].c + 1;
         };
         console.log('hello');
-        dbclient.query(`call purchase_ticket($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, '9O8T69F690R')`, [   
+        dbclient.query(`select init_purchase(mobile, $2, $3, $4, $5, $6, $7, $8, $9, $10) as purchase_id,
+                        name from customer where mobile=$1`, [   
             req.session.userid, p_ids, p_names, req.body.class_id, L, 
             req.body.date, r, c, req.body.bStation,t_no,
         ]).then(qres => {
-            console.log(qres);
+            //console.log(qres);
+            let purchase_id = qres.rows[0].purchase_id, cus_name = qres.rows[0].name;
             console.log("Purchase completed!");
+            dbclient.query(`select price from purchases where purchase_id=$1`, [purchase_id]).then(qres2 => {
+                let price = qres2.rows[0].price;
+                res.send(url.format({
+                    pathname: '/api/initPayment',
+                    query: {
+                        'total_amount': Number(price),
+                        'currency': 'BDT',
+                        'tran_id': purchase_id, 
+                        'success_url': req.body.hostname + "/api/pay_success",
+                        'fail_url': req.body.hostname + "/api/pay_fail",
+                        'cancel_url': req.body.hostname + "/api/pay_cancel",
+                        //ipn_url: 'http://localhost:3030/ipn',
+                        'shipping_method': 'NO',
+                        'num_of_item': t_no,
+                        'product_name': "Ticket for " + req.body.class_id,
+                        'product_category': 'train ticket',
+                        'product_profile': 'non-physical-goods',
+                        'cus_name': cus_name,
+                        'cus_email': 'jalalwasif@gmail.com',
+                        'cus_phone': req.session.userid,
+                        'value_a': req.body.qString,
+                    }
+                }));
+            }).catch(e => console.error(e));
         }).catch(e => console.error(e));
     };
+});
 
-})
+app.get('/api/initPayment', (req, res) => {
+    let data = {...req.query};
+    const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live)
+    sslcz.init(data).then(apiResponse => {
+        // Redirect the user to payment gateway
+        //console.log(apiResponse);
+        let GatewayPageURL = apiResponse.GatewayPageURL
+        res.redirect(GatewayPageURL)
+        console.log('Redirecting to: ', GatewayPageURL)
+    });
+});
+
+app.post('/api/pay_success', (req, res) => {
+    console.log(req);
+    let pmethod = `${req.body.card_type} ${req.body.card_no} : ${req.body.card_issuer_country}`;
+    dbclient.query(
+        `UPDATE purchases SET payment_status=$1, payment_method=$2, val_id=$3, trx_timestamp=$4, revenue=$5, trx_id=$7
+        WHERE purchase_id = $6`, 
+        ["confirmed", pmethod, req.body.val_id, req.body.tran_date, req.body.store_amount, req.body.tran_id, req.body.bank_tran_id]
+    ).then(qres => {
+        console.log(qres);
+        req.session.save(() => {
+            res.redirect('/pay_success' + req.body.value_a);
+        });
+    }).catch(e => console.error(e.stack));
+});
+
+app.post('/api/pay_fail', (req, res) => {
+    console.log(req);
+    dbclient.query(
+        `call revert_purchase($1)`, [req.body.tran_id]
+    ).then(qres => {
+        console.log(qres);
+        req.session.save(() => {
+            res.redirect('/pay_fail' + req.body.value_a);
+        });
+    }).catch(e => console.error(e.stack));
+});
+
+app.post('/api/pay_cancel', (req, res) => {
+    console.log(req);
+    dbclient.query(
+        `call revert_purchase($1)`, [req.body.tran_id]
+    ).then(qres => {
+        console.log(qres);
+        req.session.save(() => {
+            res.redirect('/pay_cancel' + req.body.value_a);
+        });
+    }).catch(e => console.error(e.stack));
+});
 
 app.post('/api/getPurchases', (req, res) => {
     console.log(req.session);
@@ -368,7 +477,7 @@ app.post('/api/getPurchaseDetails', (req, res) => {
     if (req.session.userid) {
         dbclient.query(
             `select ticket_id, name, person_id, 
-            (coach_letter || '-' || (select mat[seat_row_i][seat_row_col] 
+            (coach_letter || '-' || (select mat[seat_row][seat_col] 
                                      from seat_config 
                                      where class_id=substring(purchase_id::varchar, 1, 8)::int AND coach=coach_letter)) 
                                      as seat
@@ -386,6 +495,50 @@ app.post('/api/getPurchaseDetails', (req, res) => {
             };
         }).catch(e => console.error(e.stack));
     };
+});
+
+app.post('/api/ticketVerif', (req, res) => {
+    let qStr = "";
+    if (req.body.id.length === 29) 
+        qStr = `select (select distinct get_train_name(train_id) from bogie as B where B.class_id=P.class_id) as train_name,
+                (select distinct class_name from bogie as B where B.class_id=P.class_id) as class_name, *
+                from purchases as P where mobile=$1 AND purchase_id=$2`;
+    else if (req.body.id.length === 26) 
+        qStr = `select (select distinct get_train_name(train_id) from bogie as B where B.class_id=P.class_id) as train_name,
+                (select distinct class_name from bogie as B where B.class_id=P.class_id) as class_name, *
+                from purchases as P where mobile=$1 AND 
+                        purchase_id = (select purchase_id from tickets where ticket_id=$2)`;
+    if (req.body.id.length === 29 || req.body.id.length === 26) {
+        dbclient.query(qStr, [req.body.mobile, req.body.id]).then(qres => {
+            console.log(qres.rows);
+            if (qres.rows.length === 0) res.send({ 
+                success: false,
+            });
+            else {
+                dbclient.query(
+                    `select ticket_id, name, person_id, 
+                    (coach_letter || '-' || (select mat[seat_row][seat_col] 
+                                             from seat_config 
+                                             where class_id=substring(purchase_id::varchar, 1, 8)::int AND coach=coach_letter)) 
+                                             as seat
+                    from tickets where purchase_id = $1`, [qres.rows[0].purchase_id]
+                ).then(qres2 => {
+                    //console.log(qres);
+                    if (qres2.rows.length === 0) res.send({ 
+                        success: false,
+                    });
+                    else {
+                        res.send({
+                            purchase: {...qres.rows[0], tickets: [...qres2.rows]},
+                            success: true,
+                        });
+                    };
+                }).catch(e => console.error(e.stack));
+            };
+        }).catch(e => console.error(e.stack));
+    } else res.send({ 
+        success: false,
+    });
 });
 
 app.post('/api/getRoute', (req, res) => {

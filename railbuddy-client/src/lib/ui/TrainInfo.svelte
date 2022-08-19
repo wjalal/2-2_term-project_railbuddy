@@ -136,19 +136,18 @@
         event.preventDefault();
         if(confirm("Are you sure you want to place this order?")) {
             axios.defaults.withCredentials = true;
-            axios.post(`${server}/api/purchaseTicket`, {
+            axios.post(`${server}/api/initPurchase`, {
                 class_id: sCoach.class_id,
                 date: date,
                 bStation: bStation,
-                seatList: [...selList]
+                seatList: [...selList],
+                hostname: window.location.origin,
+                qString: window.location.href.substring(window.location.origin.length + 7, window.location.href.length)
             }).then(res => {
-                if (res.data.success === false) alert("Failed to validate purchase request.");
-                else {
-
-                };
+                console.log(res);
+                window.location.replace(res.data);
             }).catch(function (err) {
 			    console.log(err);
-                alert("Failed to validate purchase request.");
 		    });   
         };
     };

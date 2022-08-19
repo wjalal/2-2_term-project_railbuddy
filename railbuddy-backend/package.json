@@ -19,6 +19,7 @@
     "express-session": "^1.17.3",
     "node-fetch": "^2.6.7",
     "otp-generator": "^4.0.0",
-    "pg": "^8.7.3"
+    "pg": "^8.7.3",
+    "sslcommerz-lts": "^1.1.0"
   }
 }
