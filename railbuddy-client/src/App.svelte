@@ -8,8 +8,10 @@
 	import Login from "./lib/Login.svelte";
 	import Register from "./lib/Register.svelte";
 	import Profile from "./lib/Profile.svelte"; 
+	import Purchases from "./lib/Purchases.svelte"; 
 	import Password from "./lib/Password.svelte";
 	import UpdateMobile from "./lib/UpdateMobile.svelte";
+	import AdminLogin from "./lib/AdminLogin.svelte";
 	import railbuddyLogo from "./assets/railBuddy.png";
 	import axios from 'axios';
 	import { userName } from "./userStore.js";
@@ -134,6 +136,12 @@
 		</Route>
 		<Route path="update-mobile">
 			<UpdateMobile/>
+		</Route>
+		<Route path="purchases">
+			<Purchases/>
+		</Route>
+		<Route path="admin-login">
+			<AdminLogin/>
 		</Route>
 	</main>
 </Router>

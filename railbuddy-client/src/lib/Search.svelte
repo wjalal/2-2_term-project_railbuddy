@@ -28,7 +28,7 @@
 	let formStyle = "";
 	let stations = [], classes = [], trains = [], isOpen, showTrainDetails = false;
 
-	const server = 'http://localhost';
+	const server = '';
 
 	onMount (event => {
 		axios.post(`${server}/api/getClasses`).then(res => {

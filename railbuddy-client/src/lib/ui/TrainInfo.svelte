@@ -57,7 +57,7 @@
             if (selMat[L][i][j] === false) {
                 if (selCount < 4) {
                     selMat[L][i][j] = true, selCount++;
-                    selList.push({label: `${sBogieObj.coach}-${sBogieObj.mat[i][j]}`, L: L, c:i, r: j, pname: '', pid: ''});
+                    selList.push({label: `${sBogieObj.coach}-${sBogieObj.mat[i][j]}`, L: L, r: i, c: j, pname: '', pid: ''});
                     ticketStr = showTickets();
                 };
             } else {
@@ -131,11 +131,16 @@
 		});
     };
 
-    const onBuy = () => {
+    const onBuy = (event) => {
+        event.stopPropagation();
+        event.preventDefault();
         if(confirm("Are you sure you want to place this order?")) {
             axios.defaults.withCredentials = true;
-            axios.post(`${server}/api/checkSeats`, {
-                date: date
+            axios.post(`${server}/api/purchaseTicket`, {
+                class_id: sCoach.class_id,
+                date: date,
+                bStation: bStation,
+                seatList: [...selList]
             }).then(res => {
                 if (res.data.success === false) alert("Failed to validate purchase request.");
                 else {
@@ -172,6 +177,8 @@
             {/each}
         </Input>
     </FormGroup><br>
+    <Button class='w-50 fw-bold bg-success mx-auto p-2' 
+            on:click={(event) => onBuy(event)}>Pay ৳{(sCoach.fare * selCount).toFixed(2)}</Button>
     </Form>
 </Modal>
 

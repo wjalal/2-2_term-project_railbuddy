@@ -270,7 +270,7 @@ app.post('/api/search', (req, res) => {
         dbclient.query(`select *, get_station_name(origin) as oname, get_station_name(dest) as dname, 
                         next_journey_arrival(id, $1, $2, NOW()), next_departure(id, $1, NOW()), train_has_class(id, $3) as has_desired_class
                         from train 
-                        where id in (select tr_id from connecting_trains($1, $2))`,
+                        where id in (select tr_id from connecting_trains($1, $2, NOW()))`,
                         [req.body.from, req.body.to, req.body.class]
         ).then(qres => {
             if (qres.rows.length === 0) res.send ( {success: false} );
@@ -281,7 +281,7 @@ app.post('/api/search', (req, res) => {
         dbclient.query(`select *, get_station_name(origin) as oname, get_station_name(dest) as dname, 
                         next_journey_arrival(id, $1, $2, $3::timestamp), next_departure(id, $1, $3::timestamp), train_has_class(id, $4)
                         as has_desired_class from train 
-                        where id in (select tr_id from connecting_trains($1, $2))`,
+                        where id in (select tr_id from connecting_trains($1, $2, $3::timestamp))`,
                         [req.body.from, req.body.to, req.body.date, req.body.class]
         ).then(qres => {
             if (qres.rows.length === 0) res.send ( {success: false} );
@@ -318,6 +318,75 @@ app.post('/api/checkSeats', (req, res) => {
         else res.send ( {success: true, bogies: qres.rows});
     }).catch(e => console.error(e.stack));
 }); 
+
+app.post('/api/purchaseTicket', (req, res) => {
+    const t_no = req.body.seatList.length;
+    console.log(req.body, t_no);
+    if (req.session.userid && t_no <= 4 && t_no >= 0) { 
+        console.log("Initiating purchase...");
+        let p_ids=Array(t_no), p_names=Array(t_no), L=Array(t_no), r=Array(t_no), c=Array(t_no);
+        for (let i=0; i<t_no; i++) {
+            p_ids[i] = req.body.seatList[i].pid, p_names[i] = req.body.seatList[i].pname, L[i] = req.body.seatList[i].L;
+            r[i] = req.body.seatList[i].r + 1, c[i] = req.body.seatList[i].c + 1;
+        };
+        console.log('hello');
+        dbclient.query(`call purchase_ticket($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, '9O8T69F690R')`, [   
+            req.session.userid, p_ids, p_names, req.body.class_id, L, 
+            req.body.date, r, c, req.body.bStation,t_no,
+        ]).then(qres => {
+            console.log(qres);
+            console.log("Purchase completed!");
+        }).catch(e => console.error(e));
+    };
+
+})
+
+app.post('/api/getPurchases', (req, res) => {
+    console.log(req.session);
+    if (req.session.userid) {
+        dbclient.query(
+            `select (select distinct get_train_name(train_id) from bogie as B where B.class_id=P.class_id) as train_name,
+            (select distinct class_name from bogie as B where B.class_id=P.class_id) as class_name, *
+            from purchases as P where mobile=$1`, [req.session.userid]
+        ).then(qres => {
+            //console.log(qres);
+            if (qres.rows.length === 0) res.send({ 
+                success: false,
+            });
+            else {
+                res.send({
+                    history: [...qres.rows],
+                    success: true,
+                });
+            };
+        }).catch(e => console.error(e.stack));
+    };
+});
+
+app.post('/api/getPurchaseDetails', (req, res) => {
+    console.log(req.session);
+    if (req.session.userid) {
+        dbclient.query(
+            `select ticket_id, name, person_id, 
+            (coach_letter || '-' || (select mat[seat_row_i][seat_row_col] 
+                                     from seat_config 
+                                     where class_id=substring(purchase_id::varchar, 1, 8)::int AND coach=coach_letter)) 
+                                     as seat
+            from tickets where purchase_id = $1`, [req.body.purchase_id]
+        ).then(qres => {
+            //console.log(qres);
+            if (qres.rows.length === 0) res.send({ 
+                success: false,
+            });
+            else {
+                res.send({
+                    tickets: [...qres.rows],
+                    success: true,
+                });
+            };
+        }).catch(e => console.error(e.stack));
+    };
+});
 
 app.post('/api/getRoute', (req, res) => {
     console.log (req.body);
