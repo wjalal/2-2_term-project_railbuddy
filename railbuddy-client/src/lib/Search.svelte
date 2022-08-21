@@ -7,6 +7,7 @@
 	import axios from "axios";
 	import TrainInfo from "./ui/TrainInfo.svelte";
 	import TrainDetails from "./ui/TrainDetails.svelte";
+	import TrainListEntry from "./ui/TrainListEntry.svelte";
 	import prettyMilliseconds from 'pretty-ms';
 	import Flatpickr from 'svelte-flatpickr';
 	import 'flatpickr/dist/flatpickr.css';
@@ -25,8 +26,8 @@
 	const optionIdentifier = 'id';
 	const labelIdentifier = 'name';
 	const groupBy = (station) => station.district;
-	let formStyle = "";
-	let stations = [], classes = [], trains = [], isOpen, showTrainDetails = false;
+	let formStyle = "", connMode = "DIRECT";
+	let stations = [], classes = [], trains = [], routes = [], isOpen, showTrainDetails = false;
 
 	const server = '';
 
@@ -74,8 +75,56 @@
 				class: formData.class
 		}).then(res => {
 			if (res.data.success === false) {
-				alert("No matching trains found!");		
+				if (confirm("No direct trains were found. Would you like to view routes that connect multiple trains?")) {
+					axios.defaults.withCredentials = true;
+					axios.post (`${server}/api/searchConnections2`, {
+							from: formData.from,
+							to: formData.to,
+							date: formData.date,
+							class: formData.class
+					}).then(res2 => {
+						if (res2.data.success === false) {
+							alert("No matching trains were found!");
+						} else {
+							routes = [...res2.data.routes];
+							//console.log(routes);
+							let promises = [], responses = [];
+							axios.defaults.withCredentials = true;
+							for (let i=0; i<routes.length; i++) {
+								promises.push (
+									axios.post (`${server}/api/getConnTrains`, {
+										tr_id1: routes[i].tr_id1,
+										tr_id2: routes[i].tr_id2,
+									}).then(res3 => {
+										responses.push(res3);
+									})
+								);
+							};
+							Promise.all(promises).then(() => {		
+								console.log(responses);
+								for (let i=0; i<responses.length; i++) {	
+									for (const st of stations) if (st.id == routes[i].md_st) routes[i].md_st_dist = st.district;
+									for (const t of responses[i].data.trains) {
+										if (t.id === routes[i].tr_id1) routes[i].tr_1 = t;
+										if (t.id === routes[i].tr_id2) routes[i].tr_2 = t;
+									}
+									routes[i].tr_1.isOpen = false;
+									routes[i].tr_2.isOpen = false;
+								};
+								formStyle = "flex-lg-row"
+								document.getElementById("searchform").style.width = "86vw";
+								document.getElementById("search-heading").style.textAlign = "center";
+								document.getElementById("search-heading").style.marginBottom = "5vh";
+								window.history.pushState (formData, `${formData.fromName} to ${formData.toName} — RailBuddy`, 
+												`search?from=${formData.from}&to=${formData.to}&date=${formData.date}&class=${formData.class}`);
+								connMode = "CONN_2";
+							}).catch(err => { console.log(err) });
+							console.log(routes);
+						};
+					}).catch(err => { console.log(err) });
+				};		
 			} else {
+				connMode = "DIRECT";
 				trains = [...res.data.trains];
 				isOpen = Array(trains.length).fill(false);
 				for (let i=0; i<trains.length; i++) if (trains[i].has_desired_class) isOpen[i] = true;
@@ -87,16 +136,15 @@
 				window.history.pushState (formData, `${formData.fromName} to ${formData.toName} — RailBuddy`, 
 								`search?from=${formData.from}&to=${formData.to}&date=${formData.date}&class=${formData.class}`);
 			};
-		}).catch(function (err) {
-			console.log(err);
-		});
-		window.scrollTo(0, 800);
+		}).catch(err => { console.log(err) });
 	};
 
 	const collapse = (i) => {
 		isOpen[i] = !isOpen[i];
 	};
 	
+	const openDetails = () => { detailedTrain = route.tr_1, showTrainDetails = !showTrainDetails };
+
 </script>
 
 
@@ -142,7 +190,7 @@
 
 <br>
 
-<div class="mx-auto" id="train-list">
+{#if connMode === "DIRECT"}<div class="mx-auto train-list">
 	{#if trains.length > 0}
 		{#each trains as train, i(i)}
 			<!-- {#if (new Date(train.next_departure)).toDateString() == (new Date(formData.reDate)).toDateString()} -->
@@ -192,6 +240,23 @@
 	{/if}
 </div>
 
+{:else if connMode==="CONN_2"} <div class="mx-auto d-flex flex-column align-items-center train-list">
+	{#each routes as route, i(i)}
+		<p class='h4 text-dark fw-bold text-uppercase'>Route-{i+1}</p>
+		<p class='p text-success fw-bold text-uppercase'> 
+			{prettyMilliseconds((new Date(route.ar2)).getTime() - new Date(route.de1).getTime())} 
+			({prettyMilliseconds((new Date(route.de2)).getTime() - new Date(route.ar1).getTime())} waiting)</p>
+		<TrainListEntry st1_id={formData.fromInput.id} st2_id={route.md_st} formData={formData} server={server}
+						openDetails={openDetails} trname={route.tr_1.name} trid={route.tr_id1} de={route.de1} ar={route.ar1}
+						name1={formData.fromName} dist1={formData.fromDist} name2={route.md_st_name} dist2={route.md_st_dist}/>
+		<div><p class='h1 text-danger my-0'><Icon name='arrow-down-square-fill'/></p></div>
+		<TrainListEntry st1_id={route.md_st} st2_id={formData.toInput.id} formData={formData} server={server}
+						openDetails={openDetails} trname={route.tr_2.name} trid={route.tr_id2} de={route.de2} ar={route.ar2}
+						name2={formData.toName} dist2={formData.toDist} name1={route.md_st_name} dist1={route.md_st_dist}/>
+		<br><br><br>
+	{/each}
+</div>{/if}
+
 <Modal class='modal-dialog detail-card' isOpen={showTrainDetails} toggle={() => showTrainDetails = !showTrainDetails} size='xs'>
 	<ModalHeader toggle={() => showTrainDetails = !showTrainDetails}>
 		<b class='alignleft text-danger'>{detailedTrain.name + " (" + detailedTrain.id + ")"}</b><br>
@@ -210,8 +275,18 @@
 
 	
 	@media only screen and (max-width: 768px) {
-		#searchform, #train-list {
+		:global(#searchform) {
 			width: 86vw;
+			margin-left: 7vw;
+		}
+
+		:global(.train-list) {
+			width: 86vw;
+			margin-left: 7vw;
+		}
+
+		:global(.train-list-mult) {
+			width: 80vw;
 			margin-left: 7vw;
 		}
 
@@ -222,8 +297,12 @@
 			width: 65vw;
 			margin: 5vw;
 		}
-		#train-list {
+		:global(.train-list) {
 			width: 85vw;
+			margin-left: 10vw;
+		}
+		:global(.train-list-mult) {
+			width: 73vw;
 			margin-left: 10vw;
 		}
 	}
@@ -235,10 +314,10 @@
 		}
 	}
 
-	.alignleft {
+	:global(.alignleft) {
 		float: left;
 	}
-	.alignright {
+	:global(.alignright) {
 		float: right;
 	}
 

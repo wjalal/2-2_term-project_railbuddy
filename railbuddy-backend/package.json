@@ -20,6 +20,7 @@
     "node-fetch": "^2.6.7",
     "otp-generator": "^4.0.0",
     "pg": "^8.7.3",
-    "sslcommerz-lts": "^1.1.0"
+    "sslcommerz-lts": "^1.1.0",
+    "uuid": "^8.3.2"
   }
 }

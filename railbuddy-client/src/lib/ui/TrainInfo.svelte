@@ -17,7 +17,7 @@
     export let preferedClass;
 
     let currentUser, coaches = [], showSeats = false, displayBogies = [], sCoach, sBogie = '', sBogieObj = {}, 
-        selMat, selCount = 0, selList = [], ticketStr = "", showBuyWindow = false, route = [], bStation = 0;
+        selMat, selCount = 0, selList = [], ticketStr = "", showBuyWindow = false, route = [], bStation = 0, sCoachCard;
     
     userName.subscribe(value => {
 		currentUser = value;
@@ -189,7 +189,8 @@
                                                                         "success" 
                                                                         :"warning")
                                                                     :"danger border-2"} {coach.class_name === preferedClass? "border-3":""}' 
-            style='{showSeats && sCoach === coach ? "width:30vh":""}; border-radius: 1.5rem'>
+            style='{showSeats && sCoach === coach ? "width:30vh":""}; border-radius: 1.5rem'
+            bind>
         <CardHeader >
             <CardTitle class='{coach.class_name === preferedClass? "fw-bold":""}'>{coach.class_name}</CardTitle>
         </CardHeader>

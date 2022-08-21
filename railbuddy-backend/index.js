@@ -11,6 +11,7 @@ const axios = require('axios');
 const crypto = require('crypto');
 const dotenv = require('dotenv');
 const url = require('url')
+const { v4: uuidv4 } = require('uuid');
 
 dotenv.config();
 
@@ -50,7 +51,6 @@ app.use(session({
     saveUninitialized: true,
     sameSite: 'none',
     cookie: {
-        // path: ['/api/login', '/api/getProfile'],
         maxAge: 30*60*1000,
         httpOnly: false
     }
@@ -70,6 +70,10 @@ const dbclient = new Client({
 });
 
 dbclient.connect();
+
+const getRealISODate = () => {
+    return (new Date(Date.now() - (new Date()).getTimezoneOffset() * 60000)).toISOString().substring(0, 10);
+};
 
 app.post('/api/getSession',(req,res) => {
     if (req.session.userid) {
@@ -296,12 +300,12 @@ app.post('/api/getClasses', (req,res) => {
     }).catch(e => console.error(e.stack));
 });
 
+
 app.post('/api/search', (req, res) => {
-    if ((new Date(req.body.date)).toISOString().substring(0,10) == (new Date()).toISOString().substring(0,10)) {
+    if ((new Date(req.body.date)).toISOString().substring(0,10) == getRealISODate()) {
         console.log ("searching trains after NOW");
-        dbclient.query(`select *, get_station_name(origin) as oname, get_station_name(dest) as dname, 
-                        next_journey_arrival(id, $1, $2, NOW()), next_departure(id, $1, NOW()), train_has_class(id, $3) as has_desired_class
-                        from train 
+        dbclient.query(`select *, next_journey_arrival(id, $1, $2, NOW()), next_departure(id, $1, NOW()), 
+                        train_has_class(id, $3) as has_desired_class from train 
                         where id in (select tr_id from connecting_trains($1, $2, NOW()))`,
                         [req.body.from, req.body.to, req.body.class]
         ).then(qres => {
@@ -310,9 +314,8 @@ app.post('/api/search', (req, res) => {
         }).catch(e => console.error(e.stack));
     } else {
         console.log ("searching trains after" + req.body.date);
-        dbclient.query(`select *, get_station_name(origin) as oname, get_station_name(dest) as dname, 
-                        next_journey_arrival(id, $1, $2, $3::timestamp), next_departure(id, $1, $3::timestamp), train_has_class(id, $4)
-                        as has_desired_class from train 
+        dbclient.query(`select *, next_journey_arrival(id, $1, $2, $3::timestamp), next_departure(id, $1, $3::timestamp), 
+                        train_has_class(id, $4) as has_desired_class from train 
                         where id in (select tr_id from connecting_trains($1, $2, $3::timestamp))`,
                         [req.body.from, req.body.to, req.body.date, req.body.class]
         ).then(qres => {
@@ -320,6 +323,41 @@ app.post('/api/search', (req, res) => {
             else res.send ( {success: true, trains: qres.rows});
         }).catch(e => console.error(e.stack));
     }
+}); 
+
+
+app.post('/api/searchConnections2', (req, res) => {
+    if ((new Date(req.body.date)).toISOString().substring(0,10) == getRealISODate()) {
+        console.log ("searching trains after NOW");
+        dbclient.query(`select distinct on (tot_time) *, (ar1-de1) as leg1, (ar2-de2) as leg2, (ar2-de1) as tot_time, get_station_name(md_st) as md_st_name,
+                        (de2-ar1) as transit, abs(extract(epoch from (ar2-de2)) - extract(epoch from (ar1-de1))) as leg_diff
+                        from connecting_trains_2 ($1, $2, NOW()) order by tot_time, leg_diff`, [req.body.from, req.body.to]
+        ).then(qres => {
+            if (qres.rows.length === 0) res.send ( {success: false} );
+            else {
+                let route 
+                res.send ( {success: true, routes: qres.rows});
+            };
+        }).catch(e => console.error(e.stack));
+    } else {
+        console.log ("searching trains after" + req.body.date);
+        dbclient.query(`select distinct on (tot_time) *, (ar1-de1) as leg1, (ar2-de2) as leg2, (ar2-de1) as tot_time, get_station_name(md_st) as md_st_name,
+                        (de2-ar1) as transit, abs(extract(epoch from (ar2-de2)) - extract(epoch from (ar1-de1))) as leg_diff
+                        from connecting_trains_2 ($1, $2, $3) order by tot_time, leg_diff`, [req.body.from, req.body.to, req.body.date]
+        ).then(qres => {
+            if (qres.rows.length === 0) res.send ( {success: false} );
+            else res.send ( {success: true, routes: qres.rows});
+        }).catch(e => console.error(e.stack));
+    }
+}); 
+
+app.post('/api/getConnTrains', (req, res) => {
+    console.log ("searching trains after NOW");
+    dbclient.query(`select * from train where id = $1 or id = $2`, [req.body.tr_id1, req.body.tr_id2]
+    ).then(qres => {
+        if (qres.rows.length === 0) res.send ( {success: false} );
+        else res.send ( {success: true, trains: qres.rows});
+    }).catch(e => console.error(e.stack));
 }); 
 
 app.post('/api/getCoaches', (req, res) => {
@@ -363,90 +401,140 @@ app.post('/api/initPurchase', (req, res) => {
             r[i] = req.body.seatList[i].r + 1, c[i] = req.body.seatList[i].c + 1;
         };
         console.log('hello');
-        dbclient.query(`select init_purchase(mobile, $2, $3, $4, $5, $6, $7, $8, $9, $10) as purchase_id,
-                        name from customer where mobile=$1`, [   
+        dbclient.query(`select init_purchase($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) as purchase_id`, [   
             req.session.userid, p_ids, p_names, req.body.class_id, L, 
             req.body.date, r, c, req.body.bStation,t_no,
         ]).then(qres => {
             //console.log(qres);
-            let purchase_id = qres.rows[0].purchase_id, cus_name = qres.rows[0].name;
-            console.log("Purchase completed!");
-            dbclient.query(`select price from purchases where purchase_id=$1`, [purchase_id]).then(qres2 => {
-                let price = qres2.rows[0].price;
-                res.send(url.format({
-                    pathname: '/api/initPayment',
-                    query: {
-                        'total_amount': Number(price),
-                        'currency': 'BDT',
-                        'tran_id': purchase_id, 
-                        'success_url': req.body.hostname + "/api/pay_success",
-                        'fail_url': req.body.hostname + "/api/pay_fail",
-                        'cancel_url': req.body.hostname + "/api/pay_cancel",
-                        //ipn_url: 'http://localhost:3030/ipn',
-                        'shipping_method': 'NO',
-                        'num_of_item': t_no,
-                        'product_name': "Ticket for " + req.body.class_id,
-                        'product_category': 'train ticket',
-                        'product_profile': 'non-physical-goods',
-                        'cus_name': cus_name,
-                        'cus_email': 'jalalwasif@gmail.com',
-                        'cus_phone': req.session.userid,
-                        'value_a': req.body.qString,
-                    }
-                }));
-            }).catch(e => console.error(e));
+            let purchase_id = qres.rows[0].purchase_id;
+            res.send(url.format({
+                pathname: '/api/initPayment',
+                query: {
+                    'tran_id': purchase_id, 
+                    'num_of_item': t_no,
+                    'value_a': req.body.qString,
+                    'value_c': req.body.hostname
+                }
+            }));
         }).catch(e => console.error(e));
     };
 });
 
 app.get('/api/initPayment', (req, res) => {
-    let data = {...req.query};
-    const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live)
-    sslcz.init(data).then(apiResponse => {
-        // Redirect the user to payment gateway
-        //console.log(apiResponse);
-        let GatewayPageURL = apiResponse.GatewayPageURL
-        res.redirect(GatewayPageURL)
-        console.log('Redirecting to: ', GatewayPageURL)
-    });
+    console.log(req.session);
+    if (req.session.userid) {
+        let data = {...req.query};
+        dbclient.query(`select price, class_id, uuid, payment_status, mobile, 
+                        (select name from customer as c where c.mobile=p.mobile) as cus_name from purchases as p
+                        where purchase_id=$1`, [req.query.tran_id
+        ]).then(qres2 => {
+            if (req.session.userid === qres2.rows[0].mobile && qres2.rows[0].payment_status === "initiated") {
+                data.total_amount = qres2.rows[0].price;
+                data.currency = 'BDT',
+                data.success_url = req.query.value_c + "/api/pay_success";
+                data.fail_url = req.query.value_c + "/api/pay_fail";
+                data.cancel_url = req.query.value_c + "/api/pay_cancel";
+                data.shipping_method = 'NO';
+                data.product_name = "Ticket for " + qres2.rows[0].class_id;
+                data.product_category = 'train ticket';
+                data.product_profile = 'non-physical-goods';
+                data.cus_name = qres2.rows[0].cus_name;
+                data.cus_email = process.env.SSLCZ_EMAIL_DEMO;
+                data.cus_phone = req.session.userid;
+                data.value_b = qres2.rows[0].uuid;
+                data.value_d = qres2.rows[0].mobile;
+
+                const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live)
+                sslcz.init(data).then(apiResponse => {
+                    // Redirect the user to payment gateway
+                    //console.log(apiResponse);
+                    let GatewayPageURL = apiResponse.GatewayPageURL
+                    console.log(req.session);
+                    res.redirect(GatewayPageURL);
+                    console.log(req.session);
+                    console.log('Redirecting to: ', GatewayPageURL);
+                });
+            } else res.redirect('/pay_fail');
+        }).catch(e => console.error(e));
+    } else res.redirect('/pay_fail');
 });
 
 app.post('/api/pay_success', (req, res) => {
-    console.log(req);
-    let pmethod = `${req.body.card_type} ${req.body.card_no} : ${req.body.card_issuer_country}`;
+    // console.log(req);
+    // console.log(req.session);
     dbclient.query(
-        `UPDATE purchases SET payment_status=$1, payment_method=$2, val_id=$3, trx_timestamp=$4, revenue=$5, trx_id=$7
-        WHERE purchase_id = $6`, 
-        ["confirmed", pmethod, req.body.val_id, req.body.tran_date, req.body.store_amount, req.body.tran_id, req.body.bank_tran_id]
+        `SELECT uuid FROM purchases WHERE purchase_id=$1 AND mobile=$2 AND payment_status=$3`, 
+        [req.body.tran_id, req.body.value_d, 'initiated']
     ).then(qres => {
-        console.log(qres);
-        req.session.save(() => {
-            res.redirect('/pay_success' + req.body.value_a);
-        });
+        if (qres.rows[0].uuid === req.body.value_b) {
+            let pmethod = `${req.body.card_type} ${req.body.card_no} : ${req.body.card_issuer_country}`;
+            dbclient.query(
+                `UPDATE purchases SET payment_status=$1, payment_method=$2, val_id=$3, trx_timestamp=$4, revenue=$5, trx_id=$7, uuid=$8
+                WHERE purchase_id = $6`, 
+                ["confirmed", pmethod, req.body.val_id, req.body.tran_date, req.body.store_amount, req.body.tran_id, req.body.bank_tran_id, uuidv4()]
+            ).then(qres2 => {
+                // console.log(qres);
+                // console.log(req.session);
+                req.session.save(() => {
+                    // console.log(req.session);
+                    req.session.userid = req.body.value_d;
+                    // console.log(req.session);
+                    res.redirect('/pay_success' + req.body.value_a);
+                    // console.log(req.session);
+                });
+                console.log(req.session);
+            }).catch(e => console.error(e.stack));
+        } else res.redirect('/pay_fail');
     }).catch(e => console.error(e.stack));
 });
 
 app.post('/api/pay_fail', (req, res) => {
-    console.log(req);
     dbclient.query(
-        `call revert_purchase($1)`, [req.body.tran_id]
+        `SELECT uuid FROM purchases WHERE purchase_id=$1 AND mobile=$2 AND payment_status=$3`, 
+        [req.body.tran_id, req.body.value_d, 'initiated']
     ).then(qres => {
-        console.log(qres);
-        req.session.save(() => {
-            res.redirect('/pay_fail' + req.body.value_a);
-        });
+        if (qres.rows[0].uuid === req.body.value_b) {
+            let pmethod = `${req.body.card_type} ${req.body.card_no} : ${req.body.card_issuer_country}`;
+            dbclient.query(
+                `call revert_purchase($1)`, [req.body.tran_id]
+            ).then(qres2 => {
+                // console.log(qres);
+                // console.log(req.session);
+                req.session.save(() => {
+                    // console.log(req.session);
+                    req.session.userid = req.body.value_d;
+                    // console.log(req.session);
+                    res.redirect('/pay_fail' + req.body.value_a);
+                    // console.log(req.session);
+                });
+                console.log(req.session);
+            }).catch(e => console.error(e.stack));
+        } else res.redirect('/pay_fail');
     }).catch(e => console.error(e.stack));
 });
 
 app.post('/api/pay_cancel', (req, res) => {
-    console.log(req);
     dbclient.query(
-        `call revert_purchase($1)`, [req.body.tran_id]
+        `SELECT uuid FROM purchases WHERE purchase_id=$1 AND mobile=$2 AND payment_status=$3`, 
+        [req.body.tran_id, req.body.value_d, 'initiated']
     ).then(qres => {
-        console.log(qres);
-        req.session.save(() => {
-            res.redirect('/pay_cancel' + req.body.value_a);
-        });
+        if (qres.rows[0].uuid === req.body.value_b) {
+            let pmethod = `${req.body.card_type} ${req.body.card_no} : ${req.body.card_issuer_country}`;
+            dbclient.query(
+                `call revert_purchase($1)`, [req.body.tran_id]
+            ).then(qres2 => {
+                // console.log(qres);
+                // console.log(req.session);
+                req.session.save(() => {
+                    // console.log(req.session);
+                    req.session.userid = req.body.value_d;
+                    // console.log(req.session);
+                    res.redirect('/pay_cancel' + req.body.value_a);
+                    // console.log(req.session);
+                });
+                console.log(req.session);
+            }).catch(e => console.error(e.stack));
+        } else res.redirect('/pay_fail');
     }).catch(e => console.error(e.stack));
 });
 
