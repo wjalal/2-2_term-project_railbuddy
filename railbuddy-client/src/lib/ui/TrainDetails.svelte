@@ -48,7 +48,7 @@
 					<Container>
 						<Row class='p-1'>
 							{#if stop.arrival_time !== null}
-							<Col><p class="alignleft text-center" style="font-size:0.8rem; white-space:pre-line">
+							<Col><p class="text-center" style="font-size:0.8rem; white-space:pre-line">
 								Arrival
 								<b class='text-success mt-1'>
 									{(new Date(stop.arrival_time)).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</b>
@@ -62,7 +62,7 @@
 								)}</b>
 							</p></Col>{/if}
 							{#if stop.depart_time}
-							<Col><p class="alignleft text-center" style="font-size:0.8rem; white-space:pre-line">
+							<Col><p class="text-center" style="font-size:0.8rem; white-space:pre-line">
 								Departure
 								<b class='text-success mt-1'>
 									{(new Date(stop.depart_time)).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</b>

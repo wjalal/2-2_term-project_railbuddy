@@ -2,7 +2,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Rubik">
 <script>
 	import { 	Styles, Collapse, Navbar, NavbarToggler, NavbarBrand, Nav, NavItem, NavLink, Dropdown, 
-				DropdownToggle, DropdownMenu, DropdownItem, Button, Icon } from "sveltestrap";
+				DropdownToggle, DropdownMenu, DropdownItem, Button, Icon, Spinner } from "sveltestrap";
 	import { onMount } from "svelte";
 	import { Router, Route, Link } from "svelte-navigator";
 	import Search from "./lib/Search.svelte";
@@ -17,7 +17,7 @@
 	import TicketVerif from "./lib/TicketVerif.svelte";
 	import railbuddyLogo from "./assets/railBuddy.png";
 	import axios from 'axios';
-	import { userName } from "./userStore.js";
+	import { userName, loading } from "./userStore.js";
 
 	const server = '';
 	
@@ -35,9 +35,12 @@
 		});
 	});
 
-	let currentUser;
+	let currentUser, showSpinner;
 	userName.subscribe(value => {
 		currentUser = value;
+	});
+	loading.subscribe(value => {
+		showSpinner = value;
 	});
 		
 	let isOpen = false;
@@ -66,7 +69,7 @@
 
 <Router primary={false}>
 	<header>
-		<Navbar id="rbnavbar" class="fixed-top px-2 border-bottom border-2 border-success shadow" 
+		<Navbar id="rbnavbar" class='{!showSpinner?"fixed-top":""} px-2 border-bottom border-2 border-success shadow' 
 				style='background-color: rgb(225, 251, 220)' light expand="md">
 			<NavbarBrand href="/">
 				<div style="display:flex; align-items:center; gap:2vw">

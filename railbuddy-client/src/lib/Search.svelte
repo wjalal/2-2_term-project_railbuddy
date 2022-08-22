@@ -3,7 +3,7 @@
 	import { onMount } from "svelte";
 	import { 	Styles, Form, FormGroup, Input, Button, Icon, Collapse, Label, Card, CardBody, CardFooter, CardHeader, CardSubtitle, 
 				CardText, CardTitle, Carousel, CarouselControl, CarouselIndicators, CarouselItem, CarouselCaption,
-				Modal, ModalBody, ModalFooter, ModalHeader, Badge, Container, Row, Col } from "sveltestrap";
+				Modal, ModalBody, ModalFooter, ModalHeader, Badge, Container, Row, Col, Spinner } from "sveltestrap";
 	import axios from "axios";
 	import TrainInfo from "./ui/TrainInfo.svelte";
 	import TrainDetails from "./ui/TrainDetails.svelte";
@@ -13,14 +13,24 @@
 	import 'flatpickr/dist/flatpickr.css';
 	import Select from 'svelte-select';
 	import dayjs from 'dayjs';
+	import { loading } from '../userStore';
+
+	const getRealISODate = (date) => {
+		return (new Date(date.getTime() - (new Date()).getTimezoneOffset() * 60000)).toISOString().substring(0, 10);
+	};
 
 	let formData = {
 		from: 0, fromName: '', to: 0, toName: '', reDate: '', class: '', fromDist: '', toDist: '',
 		fromInput: null, toInput: null, reClass: '',
-		date: (new Date(Date.now() - (new Date()).getTimezoneOffset() * 60000)).toISOString().substring(0, 10),	
+		date: getRealISODate(new Date()),	
 	};
 
-	let detailedTrain;
+	let detailedTrain, detail = {}, showSpinner;
+
+	loading.subscribe(value => {
+		showSpinner = value;
+	});
+		
 
 	const dow = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 	const optionIdentifier = 'id';
@@ -29,14 +39,35 @@
 	let formStyle = "", connMode = "DIRECT";
 	let stations = [], classes = [], trains = [], routes = [], isOpen, showTrainDetails = false;
 
-	const server = '';
+	const server = 'http://localhost';
+
+	axios.interceptors.request.use(
+      (config) => {
+        loading.set(true);
+        return config;
+      },
+      (error) => {
+        loading.set(false);
+        return Promise.reject(error);
+      }
+    );
+
+    axios.interceptors.response.use(
+      (response) => {
+        loading.set(false);
+        return response;
+      },
+      (error) => {
+        loading.set(false);
+        return Promise.reject(error);
+      }
+    );
 
 	onMount (event => {
 		axios.post(`${server}/api/getClasses`).then(res => {
 			classes = res.data;
 			formData.class = 'SHOVAN';
 		}).then(red => {
-
 			axios.defaults.withCredentials = true;
 			axios.post(`${server}/api/getStations`).then(res => {
 				stations = [...res.data];
@@ -59,14 +90,60 @@
 		});
 	});
 
+	const onMultConn = (res, mode) => {
+		connMode = "NONE";
+		routes = [...res.data.routes];
+		//console.log(routes);
+		let promises = [], responses = [];
+		axios.defaults.withCredentials = true;
+		for (let i=0; i<routes.length; i++) {
+			promises.push (
+				axios.post (`${server}/api/getConnTrains`, {
+					tr_id1: routes[i].tr_id1,
+					tr_id2: routes[i].tr_id2,
+					tr_id3: routes[i].tr_id3
+				}).then(resp => {
+					responses.push(resp);
+				})
+			);
+		};
+		Promise.all(promises).then(() => {	
+			for (const st of stations) {
+				if (st.id == formData.to) formData.toInput = st, formData.toName = st.name, formData.toDist = st.district;
+				if (st.id == formData.from) formData.fromInput = st, formData.fromName = st.name, formData.fromDist = st.district;
+			};
+			formData.reClass = formData.class;
+			formData.reDate = formData.date;
+			
+			console.log(responses);
+			for (let i=0; i<responses.length; i++) {	
+				if (mode==="CONN_2") for (const st of stations) if (st.id == routes[i].md_st) routes[i].md_st_dist = st.district;
+				if (mode==="CONN_3") for (const st of stations) {
+					if (st.id == routes[i].md_st1) routes[i].md_st1_dist = st.district;
+					if (st.id == routes[i].md_st2) routes[i].md_st2_dist = st.district;
+				};
+				for (const t of responses[i].data.trains) {
+					if (t.id === routes[i].tr_id1) routes[i].tr_1 = t;
+					if (t.id === routes[i].tr_id2) routes[i].tr_2 = t;
+					if (mode==="CONN_3" && t.id === routes[i].tr_id3) routes[i].tr_3 = t;
+				};
+				routes[i].tr_1.isOpen = false;
+				routes[i].tr_2.isOpen = false;
+				if (mode==="CONN_3") routes[i].tr_3.isOpen = false;
+			};
+			formStyle = "flex-lg-row"
+			document.getElementById("searchform").style.width = "86vw";
+			document.getElementById("search-heading").style.textAlign = "center";
+			document.getElementById("search-heading").style.marginBottom = "5vh";
+			window.history.pushState (formData, `${formData.fromName} to ${formData.toName} — RailBuddy`, 
+							`search?from=${formData.from}&to=${formData.to}&date=${formData.date}&class=${formData.class}`);
+			connMode = mode;
+		}).catch(err => { console.log(err) });
+		console.log(routes);
+	};
+
 	const onSearch = () => {
 		console.log(stations);
-		for (const st of stations) {
-            if (st.id == formData.to) formData.toInput = st, formData.toName = st.name, formData.toDist = st.district;
-			if (st.id == formData.from) formData.fromInput = st, formData.fromName = st.name, formData.fromDist = st.district;
-        };
-		formData.reClass = formData.class;
-		formData.reDate = formData.date;
 		axios.defaults.withCredentials = true;
 		axios.post (`${server}/api/search`, {
 				from: formData.from,
@@ -75,56 +152,38 @@
 				class: formData.class
 		}).then(res => {
 			if (res.data.success === false) {
-				if (confirm("No direct trains were found. Would you like to view routes that connect multiple trains?")) {
-					axios.defaults.withCredentials = true;
-					axios.post (`${server}/api/searchConnections2`, {
-							from: formData.from,
-							to: formData.to,
-							date: formData.date,
-							class: formData.class
-					}).then(res2 => {
-						if (res2.data.success === false) {
-							alert("No matching trains were found!");
-						} else {
-							routes = [...res2.data.routes];
-							//console.log(routes);
-							let promises = [], responses = [];
+				axios.defaults.withCredentials = true;
+				axios.post (`${server}/api/searchConnections2`, {
+						from: formData.from,
+						to: formData.to,
+						date: formData.date,
+						class: formData.class
+				}).then(res2 => {
+					if (res2.data.success === false) {
+						if (confirm("No direct or two-train connections found on specified date. Would you like to view routes that connect more than two trains?" +
+									"\nThis calculation can take from one to serval minutes and we recommend you to check if there are direct trains" +
+									" or two-train connections on alternative nearby dates before resorting to this.")) {
 							axios.defaults.withCredentials = true;
-							for (let i=0; i<routes.length; i++) {
-								promises.push (
-									axios.post (`${server}/api/getConnTrains`, {
-										tr_id1: routes[i].tr_id1,
-										tr_id2: routes[i].tr_id2,
-									}).then(res3 => {
-										responses.push(res3);
-									})
-								);
-							};
-							Promise.all(promises).then(() => {		
-								console.log(responses);
-								for (let i=0; i<responses.length; i++) {	
-									for (const st of stations) if (st.id == routes[i].md_st) routes[i].md_st_dist = st.district;
-									for (const t of responses[i].data.trains) {
-										if (t.id === routes[i].tr_id1) routes[i].tr_1 = t;
-										if (t.id === routes[i].tr_id2) routes[i].tr_2 = t;
-									}
-									routes[i].tr_1.isOpen = false;
-									routes[i].tr_2.isOpen = false;
-								};
-								formStyle = "flex-lg-row"
-								document.getElementById("searchform").style.width = "86vw";
-								document.getElementById("search-heading").style.textAlign = "center";
-								document.getElementById("search-heading").style.marginBottom = "5vh";
-								window.history.pushState (formData, `${formData.fromName} to ${formData.toName} — RailBuddy`, 
-												`search?from=${formData.from}&to=${formData.to}&date=${formData.date}&class=${formData.class}`);
-								connMode = "CONN_2";
+							axios.post (`${server}/api/searchConnections3`, {
+									from: formData.from,
+									to: formData.to,
+									date: formData.date,
+									class: formData.class
+							}).then(res3 => {
+								if (res3.data.success === false) alert("No possible connections found between requested stations.");
+								else onMultConn(res3, "CONN_3");
 							}).catch(err => { console.log(err) });
-							console.log(routes);
-						};
-					}).catch(err => { console.log(err) });
-				};		
+						};	
+					} else onMultConn(res2, "CONN_2");
+				}).catch(err => { console.log(err) });
 			} else {
-				connMode = "DIRECT";
+				for (const st of stations) {
+					if (st.id == formData.to) formData.toInput = st, formData.toName = st.name, formData.toDist = st.district;
+					if (st.id == formData.from) formData.fromInput = st, formData.fromName = st.name, formData.fromDist = st.district;
+				};
+				formData.reClass = formData.class;
+				formData.reDate = formData.date;
+				connMode = "NONE";
 				trains = [...res.data.trains];
 				isOpen = Array(trains.length).fill(false);
 				for (let i=0; i<trains.length; i++) if (trains[i].has_desired_class) isOpen[i] = true;
@@ -135,6 +194,7 @@
 				document.getElementById("search-heading").style.marginBottom = "5vh";
 				window.history.pushState (formData, `${formData.fromName} to ${formData.toName} — RailBuddy`, 
 								`search?from=${formData.from}&to=${formData.to}&date=${formData.date}&class=${formData.class}`);
+				connMode = "DIRECT";
 			};
 		}).catch(err => { console.log(err) });
 	};
@@ -143,7 +203,11 @@
 		isOpen[i] = !isOpen[i];
 	};
 	
-	const openDetails = () => { detailedTrain = route.tr_1, showTrainDetails = !showTrainDetails };
+	const openDetails = (train, st1, st2, date) => { 
+		detailedTrain = train;
+		detail.st1 = st1, detail.st2 = st2, detail.date = date;
+		showTrainDetails = !showTrainDetails; 
+	};
 
 </script>
 
@@ -223,7 +287,7 @@
 							</p></div><hr class="my-0 mx-5"/>
 							<div class="d-flex justify-content-center pt-2">
 							<a class='text-danger' href={null} style='cursor: pointer; font-size: 0.6rem'
-									on:click={() => {detailedTrain = train, showTrainDetails = !showTrainDetails}}>(See Details)</a></div>
+									on:click={()=>openDetails(train, formData.fromInput.id, formData.toInput.id, formData.reDate)}>(See Details)</a></div>
 							<br><br><br>
 						</CardSubtitle>
 						<CardText>
@@ -247,12 +311,39 @@
 			{prettyMilliseconds((new Date(route.ar2)).getTime() - new Date(route.de1).getTime())} 
 			({prettyMilliseconds((new Date(route.de2)).getTime() - new Date(route.ar1).getTime())} waiting)</p>
 		<TrainListEntry st1_id={formData.fromInput.id} st2_id={route.md_st} formData={formData} server={server}
-						openDetails={openDetails} trname={route.tr_1.name} trid={route.tr_id1} de={route.de1} ar={route.ar1}
+						openDetails={()=>openDetails(route.tr_1, formData.fromInput.id, route.md_st, getRealISODate(new Date(route.de1)))} 
+						trname={route.tr_1.name} trid={route.tr_id1} de={route.de1} ar={route.ar1}
 						name1={formData.fromName} dist1={formData.fromDist} name2={route.md_st_name} dist2={route.md_st_dist}/>
 		<div><p class='h1 text-danger my-0'><Icon name='arrow-down-square-fill'/></p></div>
 		<TrainListEntry st1_id={route.md_st} st2_id={formData.toInput.id} formData={formData} server={server}
-						openDetails={openDetails} trname={route.tr_2.name} trid={route.tr_id2} de={route.de2} ar={route.ar2}
+						openDetails={()=>openDetails(route.tr_2, route.md_st, formData.toInput.id, getRealISODate(new Date(route.de2)))} 
+						trname={route.tr_2.name} trid={route.tr_id2} de={route.de2} ar={route.ar2}
 						name2={formData.toName} dist2={formData.toDist} name1={route.md_st_name} dist1={route.md_st_dist}/>
+		<br><br><br>
+	{/each}
+</div>
+
+{:else if connMode==="CONN_3"} <div class="mx-auto d-flex flex-column align-items-center train-list">
+	{#each routes as route, i(i)}
+		{#if routes.length > 1}<p class='h4 text-dark fw-bold text-uppercase'>Route-{i+1}</p>{/if}
+		<small class='text-success fw-bold text-uppercase'> 
+			{prettyMilliseconds((new Date(route.ar3)).getTime() - new Date(route.de1).getTime())} 
+			({prettyMilliseconds((new Date(route.de2)).getTime() - new Date(route.ar1).getTime())} + 
+			{prettyMilliseconds((new Date(route.de3)).getTime() - new Date(route.ar2).getTime())} waiting)</small>
+		<TrainListEntry st1_id={formData.fromInput.id} st2_id={route.md_st1} formData={formData} server={server}
+						openDetails={()=>openDetails(route.tr_1, formData.fromInput.id, route.md_st1, getRealISODate(new Date(route.de1)))} 
+						trname={route.tr_1.name} trid={route.tr_id1} de={route.de1} ar={route.ar1}
+						name1={formData.fromName} dist1={formData.fromDist} name2={route.md_st1_name} dist2={route.md_st1_dist}/>
+		<div><p class='h1 text-danger my-0'><Icon name='arrow-down-square-fill'/></p></div>
+		<TrainListEntry st1_id={route.md_st1} st2_id={route.md_st2} formData={formData} server={server}
+						openDetails={()=>openDetails(route.tr_2, route.md_st1, route.md_st2, getRealISODate(new Date(route.de2)))} 
+						trname={route.tr_2.name} trid={route.tr_id2} de={route.de2} ar={route.ar2}
+						name1={route.md_st1_name} dist1={route.md_st1_dist} name2={route.md_st2_name} dist2={route.md_st2_dist}/>
+		<div><p class='h1 text-danger my-0'><Icon name='arrow-down-square-fill'/></p></div>
+		<TrainListEntry st1_id={route.md_st1} st2_id={formData.toInput.id} formData={formData} server={server}
+						openDetails={()=>openDetails(route.tr_3, route.md_st1, formData.toInput.id, getRealISODate(new Date(route.de3)))} 
+						trname={route.tr_3.name} trid={route.tr_id3} de={route.de3} ar={route.ar3}
+						name2={formData.toName} dist2={formData.toDist} name1={route.md_st2_name} dist1={route.md_st2_dist}/>
 		<br><br><br>
 	{/each}
 </div>{/if}
@@ -266,9 +357,14 @@
 			</Badge>{/each}
 		</div>
 	</ModalHeader>
-	<TrainDetails train={detailedTrain} st1_id={formData.fromInput.id} st2_id={formData.toInput.id} date={formData.reDate} server={server}/>
+	<TrainDetails train={detailedTrain} st1_id={detail.st1} st2_id={detail.st2} date={detail.date} server={server}/>
 </Modal>
 
+
+{#if showSpinner}  <div style='position: fixed; left: 0; top: 0; width:100vw; height:100vh; background-color:rgba(0,0,0,0.5)' 
+						toggle={()=>{}} size='xs'>
+	<Spinner color='light' style="width: 33vh; height: 33vh; position:fixed; top:33vh; left: 50vw; margin-left:-17.5vh"/>
+</div> {/if}
 
 <style>
 	@import "https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css";

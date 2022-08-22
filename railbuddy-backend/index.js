@@ -325,23 +325,21 @@ app.post('/api/search', (req, res) => {
     }
 }); 
 
-
 app.post('/api/searchConnections2', (req, res) => {
     if ((new Date(req.body.date)).toISOString().substring(0,10) == getRealISODate()) {
         console.log ("searching trains after NOW");
-        dbclient.query(`select distinct on (tot_time) *, (ar1-de1) as leg1, (ar2-de2) as leg2, (ar2-de1) as tot_time, get_station_name(md_st) as md_st_name,
+        dbclient.query(`select distinct on (tot_time) *, (ar2-de1) as tot_time, get_station_name(md_st) as md_st_name,
                         (de2-ar1) as transit, abs(extract(epoch from (ar2-de2)) - extract(epoch from (ar1-de1))) as leg_diff
                         from connecting_trains_2 ($1, $2, NOW()) order by tot_time, leg_diff`, [req.body.from, req.body.to]
         ).then(qres => {
             if (qres.rows.length === 0) res.send ( {success: false} );
             else {
-                let route 
                 res.send ( {success: true, routes: qres.rows});
             };
         }).catch(e => console.error(e.stack));
     } else {
         console.log ("searching trains after" + req.body.date);
-        dbclient.query(`select distinct on (tot_time) *, (ar1-de1) as leg1, (ar2-de2) as leg2, (ar2-de1) as tot_time, get_station_name(md_st) as md_st_name,
+        dbclient.query(`select distinct on (tot_time) *, (ar2-de1) as tot_time, get_station_name(md_st) as md_st_name,
                         (de2-ar1) as transit, abs(extract(epoch from (ar2-de2)) - extract(epoch from (ar1-de1))) as leg_diff
                         from connecting_trains_2 ($1, $2, $3) order by tot_time, leg_diff`, [req.body.from, req.body.to, req.body.date]
         ).then(qres => {
@@ -351,13 +349,53 @@ app.post('/api/searchConnections2', (req, res) => {
     }
 }); 
 
+app.post('/api/searchConnections3', (req, res) => {
+    if ((new Date(req.body.date)).toISOString().substring(0,10) == getRealISODate()) {
+        console.log ("searching trains after NOW");
+        dbclient.query(`select distinct on (tot_time) *,
+                        (ar3-de1) as tot_time, get_station_name(md_st1) as md_st1_name, get_station_name(md_st2) as md_st2_name,
+                        abs( extract(epoch from (ar1-de1)) - (extract(epoch from (ar1-de1))+extract(epoch from (ar2-de2))+extract(epoch from (ar3-de3)))/3 ) +
+                        abs( extract(epoch from (ar2-de2)) - (extract(epoch from (ar1-de1))+extract(epoch from (ar2-de2))+extract(epoch from (ar3-de3)))/3 ) +
+                        abs( extract(epoch from (ar3-de3)) - (extract(epoch from (ar1-de1))+extract(epoch from (ar2-de2))+extract(epoch from (ar3-de3)))/3 ) as mean_dev
+                        from connecting_trains_3 ($1, $2, NOW())
+                        order by tot_time, mean_dev`, [req.body.from, req.body.to]
+        ).then(qres => {
+            if (qres.rows.length === 0) res.send ( {success: false} );
+            else {
+                res.send ( {success: true, routes: qres.rows});
+            };
+        }).catch(e => console.error(e.stack));
+    } else {
+        console.log ("searching trains after" + req.body.date);
+        dbclient.query(`select distinct on (tot_time) *,
+                        (ar3-de1) as tot_time, get_station_name(md_st1) as md_st1_name, get_station_name(md_st2) as md_st2_name,
+                        abs( extract(epoch from (ar1-de1)) - (extract(epoch from (ar1-de1))+extract(epoch from (ar2-de2))+extract(epoch from (ar3-de3)))/3 ) +
+                        abs( extract(epoch from (ar2-de2)) - (extract(epoch from (ar1-de1))+extract(epoch from (ar2-de2))+extract(epoch from (ar3-de3)))/3 ) +
+                        abs( extract(epoch from (ar3-de3)) - (extract(epoch from (ar1-de1))+extract(epoch from (ar2-de2))+extract(epoch from (ar3-de3)))/3 ) as mean_dev
+                        from connecting_trains_3 ($1, $2, $3)
+                        order by tot_time, mean_dev`, [req.body.from, req.body.to, req.body.date]
+        ).then(qres => {
+            if (qres.rows.length === 0) res.send ( {success: false} );
+            else res.send ( {success: true, routes: qres.rows});
+        }).catch(e => console.error(e.stack));
+    };
+}); 
+
 app.post('/api/getConnTrains', (req, res) => {
     console.log ("searching trains after NOW");
-    dbclient.query(`select * from train where id = $1 or id = $2`, [req.body.tr_id1, req.body.tr_id2]
-    ).then(qres => {
-        if (qres.rows.length === 0) res.send ( {success: false} );
-        else res.send ( {success: true, trains: qres.rows});
-    }).catch(e => console.error(e.stack));
+    if (typeof req.body.tr_id3 === 'undefined') {
+        dbclient.query(`select * from train where id = $1 or id = $2`, [req.body.tr_id1, req.body.tr_id2]
+        ).then(qres => {
+            if (qres.rows.length === 0) res.send ( {success: false} );
+            else res.send ( {success: true, trains: qres.rows});
+        }).catch(e => console.error(e.stack));
+    } else {
+        dbclient.query(`select * from train where id = $1 or id = $2 or id = $3`, [req.body.tr_id1, req.body.tr_id2, req.body.tr_id3]
+        ).then(qres => {
+            if (qres.rows.length === 0) res.send ( {success: false} );
+            else res.send ( {success: true, trains: qres.rows});
+        }).catch(e => console.error(e.stack));
+    };
 }); 
 
 app.post('/api/getCoaches', (req, res) => {
