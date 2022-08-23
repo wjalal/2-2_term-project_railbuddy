@@ -36,12 +36,12 @@
 	<p class ='h1'>Sign In</p>
 	<Form class="my-5 d-flex flex-column justify-content-center">
 		<FormGroup floating label="Mobile Number">
-			<Input type="tel" name="userid" id="userid" bind:value={formData.mobile}/>
+			<Input type="tel" name="userid" id="userid" bind:value={formData.mobile} style="border-radius:0.7rem" />
 		</FormGroup>
 		<FormGroup floating label="Password">
-			<Input type="password" name="password" id="password" bind:value={formData.password}/>
+			<Input type="password" name="password" id="password" bind:value={formData.password} style="border-radius:0.7rem" />
 		</FormGroup>
-		<Button class="w-50 p-3 mx-auto" color="success" on:click={onLogin}
+		<Button class="w-50 p-3 mx-auto" color="success" on:click={onLogin} style="border-radius:0.7rem" 
 			>Login</Button
 		>
 	</Form>

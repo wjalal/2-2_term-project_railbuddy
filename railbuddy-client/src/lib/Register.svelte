@@ -92,19 +92,19 @@
 	<p class ='h1'>Sign Up</p>
 	<Form class="my-5 d-flex flex-column justify-content-center">
 		<FormGroup floating label="Mobile Number">
-			<Input type="tel" name="userid" id="userid" bind:value={formData.mobile} disabled={formData.disableMobile}/>
+			<Input type="tel" name="userid" id="userid" bind:value={formData.mobile} disabled={formData.disableMobile} style="border-radius:0.7rem" />
 		</FormGroup>
 		{#if formData.showOTP}
 			<FormGroup floating label="SMS Verification Code">
-				<Input type="tel" name="otp" id="otp" bind:value={formData.otp} disabled={formData.disableNID}/>
+				<Input type="tel" name="otp" id="otp" bind:value={formData.otp} disabled={formData.disableNID} style="border-radius:0.7rem" />
 			</FormGroup>
 		{/if}
 		{#if formData.showNID}
 			<FormGroup floating label="NID">
-				<Input type="tel" name="nid" id="nid" bind:value={formData.nid} disabled={formData.disableNID}/>
+				<Input type="tel" name="nid" id="nid" bind:value={formData.nid} disabled={formData.disableNID} style="border-radius:0.7rem" />
 			</FormGroup>
 			<FormGroup floating label="Date of Birth">
-				<Input type="date" name="dob" id="dob" bind:value={formData.dob} disabled={formData.disableNID}/>
+				<Input type="date" name="dob" id="dob" bind:value={formData.dob} disabled={formData.disableNID} style="border-radius:0.7rem" />
 			</FormGroup>
 		{/if}
 		{#if formData.showKYC} 
@@ -123,13 +123,13 @@
 		{/if}
 		{#if formData.showPassword}
 			<FormGroup floating label="Password">
-				<Input type="password" name="password" id="password" bind:value={formData.password}/>
+				<Input type="password" name="password" id="password" bind:value={formData.password} style="border-radius:0.7rem" />
 			</FormGroup>
 			<FormGroup floating label="Confirm Password">
-				<Input type="password" name="password2" id="password2" bind:value={formData.password2}/>
+				<Input type="password" name="password2" id="password2" bind:value={formData.password2} style="border-radius:0.7rem" />
 			</FormGroup>
 		{/if}
-		<Button class='w-50 p-3 mx-auto' color='success' on:click={onRegister}>Submit</Button>
+		<Button class='w-50 p-3 mx-auto' color='success' on:click={onRegister} style="border-radius:0.7rem" >Submit</Button>
 	</Form>
 </div>
 

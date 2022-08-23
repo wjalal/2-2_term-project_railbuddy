@@ -15,6 +15,7 @@
 	import UpdateMobile from "./lib/UpdateMobile.svelte";
 	import AdminLogin from "./lib/AdminLogin.svelte";
 	import TicketVerif from "./lib/TicketVerif.svelte";
+	import Complaints from "./lib/Complaints.svelte";
 	import railbuddyLogo from "./assets/railBuddy.png";
 	import axios from 'axios';
 	import { userName, loading } from "./userStore.js";
@@ -150,6 +151,7 @@
 		<Route path="pay_fail">		<PayMessage mode='fail'/>	</Route>
 		<Route path="pay_cancel">	<PayMessage mode='cancel'/>	</Route>
 		<Route path="verif">		<TicketVerif/>				</Route>
+		<Route path="complaint">	<Complaints/>				</Route>
 	</main>
 </Router>
 

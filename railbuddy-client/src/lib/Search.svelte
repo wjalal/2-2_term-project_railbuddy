@@ -39,7 +39,7 @@
 	let formStyle = "", connMode = "DIRECT";
 	let stations = [], classes = [], trains = [], routes = [], isOpen, showTrainDetails = false;
 
-	const server = 'http://localhost';
+	const server = '';
 
 	axios.interceptors.request.use(
       (config) => {
@@ -64,14 +64,12 @@
     );
 
 	onMount (event => {
-		axios.post(`${server}/api/getClasses`).then(res => {
-			classes = res.data;
+		axios.post(`${server}/api/getClasses`).then(res1 => {
+			classes = res1.data;
 			formData.class = 'SHOVAN';
-		}).then(red => {
 			axios.defaults.withCredentials = true;
-			axios.post(`${server}/api/getStations`).then(res => {
-				stations = [...res.data];
-			}).then(res => {
+			axios.post(`${server}/api/getStations`).then(res2 => {
+				stations = [...res2.data];
 				const urlParams = new URLSearchParams(window.location.search);
 				if (urlParams.get('class') != null && urlParams.get('from') != null && urlParams.get('to') != null && urlParams.get('date') != null) {
 					console.log(urlParams.get('class'));
@@ -306,7 +304,7 @@
 
 {:else if connMode==="CONN_2"} <div class="mx-auto d-flex flex-column align-items-center train-list">
 	{#each routes as route, i(i)}
-		<p class='h4 text-dark fw-bold text-uppercase'>Route-{i+1}</p>
+		{#if routes.length > 1}<p class='h4 text-dark fw-bold text-uppercase'>Route-{i+1}</p>{/if}
 		<p class='p text-success fw-bold text-uppercase'> 
 			{prettyMilliseconds((new Date(route.ar2)).getTime() - new Date(route.de1).getTime())} 
 			({prettyMilliseconds((new Date(route.de2)).getTime() - new Date(route.ar1).getTime())} waiting)</p>
@@ -327,7 +325,7 @@
 	{#each routes as route, i(i)}
 		{#if routes.length > 1}<p class='h4 text-dark fw-bold text-uppercase'>Route-{i+1}</p>{/if}
 		<small class='text-success fw-bold text-uppercase'> 
-			{prettyMilliseconds((new Date(route.ar3)).getTime() - new Date(route.de1).getTime())} 
+			{prettyMilliseconds((new Date(route.ar3)).getTime() - new Date(route.de1).getTime())} &nbsp;&nbsp;
 			({prettyMilliseconds((new Date(route.de2)).getTime() - new Date(route.ar1).getTime())} + 
 			{prettyMilliseconds((new Date(route.de3)).getTime() - new Date(route.ar2).getTime())} waiting)</small>
 		<TrainListEntry st1_id={formData.fromInput.id} st2_id={route.md_st1} formData={formData} server={server}

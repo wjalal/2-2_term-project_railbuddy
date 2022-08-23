@@ -291,15 +291,66 @@ app.post('/api/getStations', (req,res) => {
     }).catch(e => console.error(e.stack));
 });
 
+app.post('/api/getTrains', (req,res) => {
+    dbclient.query("SELECT distinct on (name) id, name FROM train ORDER BY name ASC, id ASC").then(qres => {
+        res.send(qres.rows);
+    }).catch(e => console.error(e.stack));
+});
+
 app.post('/api/getClasses', (req,res) => {
     dbclient.query("SELECT unnest(enum_range(NULL::seat_class));").then(qres => {
         let nameArr = [];
         qres.rows.forEach(obj => { nameArr.push(obj.unnest) });
         res.send(nameArr);
-        console.log(nameArr);
     }).catch(e => console.error(e.stack));
 });
 
+app.post('/api/getCompTypes', (req,res) => {
+    dbclient.query("SELECT unnest(enum_range(NULL::complaint_category));").then(qres => {
+        let nameArr = [];
+        qres.rows.forEach(obj => { nameArr.push(obj.unnest) });
+        res.send(nameArr);
+    }).catch(e => console.error(e.stack));
+});
+
+app.post('/api/getComplaints', (req, res) => {
+    console.log(req.session);
+    if (req.session.userid) {
+        dbclient.query(
+            `select *, lpad(id::varchar, 8, '0')::char(8) as complaint_id, get_station_name(associated_station) as a_st_name, 
+            get_train_name(associated_train) as a_tr_name from complaint where user_mobile=$1
+            order by req_time desc limit 10`, [req.session.userid]
+        ).then(qres => {
+            //console.log(qres);
+            if (qres.rowCount === 0) res.send({ 
+                success: false,
+            });
+            else {
+                res.send({
+                    complaints: [...qres.rows],
+                    success: true,
+                });
+            };
+        }).catch(e => console.error(e.stack));
+    };
+});
+
+app.post('/api/makeComplaint', (req,res) => {
+    dbclient.query(
+        `INSERT INTO complaint (category, user_mobile, req_time, associated_station, associated_train, req_text) values ($1, $2, NOW(), $3, $4, $5)`, 
+        [req.body.category, req.session.userid, req.body.station, req.body.train, req.body.text]
+    ).then(qres => {
+        //console.log(qres);
+        if (qres.rowCount === 1) res.send({ 
+            success: true,
+        });
+        else if (qres.rowCount === 0) {
+            res.send({
+                success: false,
+            });
+        };
+    }).catch(e => console.error(e.stack));
+});
 
 app.post('/api/search', (req, res) => {
     if ((new Date(req.body.date)).toISOString().substring(0,10) == getRealISODate()) {
@@ -426,7 +477,6 @@ app.post('/api/checkSeats', (req, res) => {
         else res.send ( {success: true, bogies: qres.rows});
     }).catch(e => console.error(e.stack));
 }); 
-
 
 app.post('/api/initPurchase', (req, res) => {
     const t_no = req.body.seatList.length;

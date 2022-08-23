@@ -36,15 +36,15 @@
 	<p class ='h1'>Change Password</p>
 	<Form class="my-5 d-flex flex-column justify-content-center">
 		<FormGroup floating label="Old Password">
-			<Input type="password" name="password0" id="password0" bind:value={password0}/>
+			<Input type="password" name="password0" id="password0" bind:value={password0} style="border-radius:0.7rem" />
 		</FormGroup><br>
 		<FormGroup floating label="New Password">
-			<Input type="password" name="password" id="password" bind:value={password}/>
+			<Input type="password" name="password" id="password" bind:value={password} style="border-radius:0.7rem" />
 		</FormGroup>
 		<FormGroup floating label="Confirm New Password">
-			<Input type="password" name="password2" id="password2" bind:value={password2}/>
+			<Input type="password" name="password2" id="password2" bind:value={password2} style="border-radius:0.7rem" />
 		</FormGroup><br>
-		<Button class="w-50 p-2 mx-auto" color='danger' on:click={onSubmit}>Submit</Button>
+		<Button class="w-50 p-2 mx-auto" color='danger' on:click={onSubmit} style="border-radius:0.7rem" >Submit</Button>
 	</Form>
 </div>
 

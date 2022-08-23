@@ -86,23 +86,23 @@
 		{#if formData.showPassword}
 			<h4>Enter your password</h4>
 			<FormGroup floating label="Password">
-				<Input type="password" name="password" id="password" bind:value={formData.password}/>
+				<Input type="password" name="password" id="password" bind:value={formData.password} style="border-radius:0.7rem" />
 			</FormGroup>
 		{/if}
 		{#if formData.showNewMobile}
 			<FormGroup floating label="New mobile number">
-				<Input type="tel" name="newMobile" id="newMobile" bind:value={formData.newMobile} disabled={formData.disableMobile}/>
+				<Input type="tel" name="newMobile" id="newMobile" bind:value={formData.newMobile} disabled={formData.disableMobile} style="border-radius:0.7rem" />
 			</FormGroup>
 			<FormGroup floating label="Confirm new mobile number">
-				<Input type="tel" name="newMobile2" id="newMobile2" bind:value={formData.newMobile2} disabled={formData.disableMobile}/>
+				<Input type="tel" name="newMobile2" id="newMobile2" bind:value={formData.newMobile2} disabled={formData.disableMobile} style="border-radius:0.7rem" />
 			</FormGroup>
 		{/if}
 		{#if formData.showOTP}
 			<FormGroup floating label="SMS Verification Code">
-				<Input type="tel" name="otp" id="otp" bind:value={formData.otp}/>
+				<Input type="tel" name="otp" id="otp" bind:value={formData.otp} style="border-radius:0.7rem" />
 			</FormGroup>
 		{/if}
-		<Button class='w-50 p-3 mx-auto' color='success' on:click={onUpdateMobile}>Submit</Button>
+		<Button class='w-50 p-3 mx-auto' color='success' on:click={onUpdateMobile} style="border-radius:0.7rem" >Submit</Button>
 	</Form>
 </div>
 
