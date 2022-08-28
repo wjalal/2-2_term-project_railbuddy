@@ -5,7 +5,7 @@
     import axios from "axios";
 
     export let mode = "none";
-    let currentUser, backLink = "/search";
+    let currentUser, backLink = "/search", purchaseHref = 'purchases';
     import { userName } from "../userStore.js";
     userName.subscribe(value => {
 		currentUser = value;
@@ -18,6 +18,7 @@
         backLink += "&to=" + (urlParams.get('to'));
         backLink += "&date=" + (urlParams.get('date'));
         backLink += "&class=" + (urlParams.get('class'));
+        purchaseHref += "?pid=" + urlParams.get('pid');
     };
 </script>
 
@@ -31,9 +32,9 @@
                                                         mode === "cancel"? "Cancelled" : "Failed"}</p><br>
         <p>Your order {mode === "success"? "should be confirmed in a short while." :
                                 mode === "cancel"? "was suspended because of cancellation of payment from your side." :
-                                         "was rejected because your payment has failed."}</p><br>
+                                         "was rejected because your payment has failed."}</p><br>                    
         <a href={backLink}><Icon name='arrow-return-left'/> &nbsp; Back to Search</a><br>                                
         <a href='/'><Icon name='house-fill'/> &nbsp; Return to Home</a><br>
-        <a href='/purchases'><Icon name='clock-history'/> &nbsp; View my Purchase History</a>
+        <a href={purchaseHref}><Icon name='clock-history'/> &nbsp; View my Purchase History / Print Tickets</a>
     {/if}
 </div>

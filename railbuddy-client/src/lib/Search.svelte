@@ -5,6 +5,7 @@
 				CardText, CardTitle, Carousel, CarouselControl, CarouselIndicators, CarouselItem, CarouselCaption,
 				Modal, ModalBody, ModalFooter, ModalHeader, Badge, Container, Row, Col, Spinner } from "sveltestrap";
 	import axios from "axios";
+	import stationIcon from "../assets/station.png";
 	import TrainInfo from "./ui/TrainInfo.svelte";
 	import TrainDetails from "./ui/TrainDetails.svelte";
 	import TrainListEntry from "./ui/TrainListEntry.svelte";
@@ -14,6 +15,7 @@
 	import Select from 'svelte-select';
 	import dayjs from 'dayjs';
 	import { loading } from '../userStore';
+	import { Loader } from "@googlemaps/js-api-loader"
 
 	const getRealISODate = (date) => {
 		return (new Date(date.getTime() - (new Date()).getTimezoneOffset() * 60000)).toISOString().substring(0, 10);
@@ -25,7 +27,7 @@
 		date: getRealISODate(new Date()),	
 	};
 
-	let detailedTrain, detail = {}, showSpinner;
+	let detailedTrain, detail = {}, showSpinner, mapDiv, map, trackCoords = [], trackNodes;
 
 	loading.subscribe(value => {
 		showSpinner = value;
@@ -36,7 +38,7 @@
 	const optionIdentifier = 'id';
 	const labelIdentifier = 'name';
 	const groupBy = (station) => station.district;
-	let formStyle = "", connMode = "DIRECT";
+	let formStyle = "", mapFlexStyle = 'flex-lg-row', connMode = "DIRECT";
 	let stations = [], classes = [], trains = [], routes = [], isOpen, showTrainDetails = false;
 
 	const server = '';
@@ -63,29 +65,211 @@
       }
     );
 
+	const loader = new Loader({
+		apiKey: "AIzaSyBbp_4cu2kBygFba8GJvVYJFmXiASEsYaU",
+		version: "weekly",
+		libraries: ["places"]
+	});
+
+	let fromMarker, toMarker, stationFinder;
+
+	const mapOptions = {
+		center: {
+			lat: 24.065186629419237,
+			lng: 90.20190125006856
+		},
+		minZoom: 6,
+		maxZoom: 16,
+		zoom: 8,
+		mapTypeControl: false,
+		fullscreenControl: false,
+		streetViewControl: false,
+		zoomControl: false,
+		restriction: {
+			latLngBounds: {
+				east: 93.48999308624748,
+				west: 86.36899659498012,
+				north: 27.41084334477157, 
+				south: 20.34744359887999,
+			}
+		},
+		styles: [
+			{
+				"featureType": "administrative.country",
+				"elementType": "geometry.stroke",
+				"stylers": [
+					{ "color": "#ee0000" }
+				]
+			},
+			{
+				"featureType": "road.highway",
+				"elementType": "labels",
+				"stylers": [
+					{ "visibility": "off" }
+				]
+			},
+			{
+				"featureType": "road.highway",
+				"elementType": "geometry",
+				"stylers": [
+					{ "visibility": "simplified" }
+				]
+			},
+		]
+	};
+
+	const rearrangeSearchUI = () => {
+		formStyle = "flex-lg-row", mapFlexStyle = 'flex-lg-column';
+		mapDiv.style.width = '65vw', mapDiv.style.height = '18rem', mapDiv.style.marginRight = '0';
+		document.getElementById("searchform").style.width = "86vw";
+		document.getElementById("search-heading").style.textAlign = "center";
+		document.getElementById("search-heading").style.marginBottom = "5vh";
+		document.title = `${formData.fromName} to ${formData.toName} – RailBuddy`;
+		window.history.pushState (null, `${formData.fromName} to ${formData.toName} – RailBuddy`, 
+						`search?from=${formData.from}&to=${formData.to}&date=${formData.date}&class=${formData.class}`);
+	};
+
 	onMount (event => {
+		loader.load().then((google) => {
+			map = new google.maps.Map(mapDiv, mapOptions);
+			fromMarker = new google.maps.Marker({
+				position: {
+					lat: 23.164734876041322, 
+					lng: 89.19372586609381
+				}, 
+				title: "Originating Station (From station)",
+				draggable: true,
+				map: map,
+				icon: { 
+					url: 'http://maps.google.com/mapfiles/kml/paddle/A.png',
+					scaledSize: new google.maps.Size(44, 44)
+				},
+				optimized: false,
+				zIndex: 20
+			});
+			toMarker = new google.maps.Marker({
+				position: {
+					lat: 24.30897440355017, 
+					lng: 91.72918306593593
+				}, 
+				title: "Destination Station (To station)",
+				draggable: true,
+				map: map,
+				icon: { 
+					url: 'http://maps.google.com/mapfiles/kml/paddle/B.png',
+					scaledSize: new google.maps.Size(44, 44)
+				},
+				optimized: false,
+				zIndex: 20
+			});
+			const stationFinder = document.createElement("button");
+			stationFinder.style.backgroundColor = "var(--bs-danger)";
+			stationFinder.style.border = "0";
+			stationFinder.style.borderRadius = "0.8rem";
+			stationFinder.style.boxShadow = "0 2px 6px rgba(0,0,0,.3)";
+			stationFinder.style.color = "var(--bs-light)";
+			stationFinder.style.cursor = "pointer";
+			stationFinder.style.fontSize = "16px";
+			stationFinder.style.lineHeight = "38px";
+			stationFinder.style.margin = "0 0 1.2rem 0";
+			stationFinder.style.padding = "0.2rem";
+			stationFinder.style.textAlign = "center";
+			stationFinder.textContent = " Autofill Stations! ";
+			stationFinder.title = "Click to autofill the search form";
+			stationFinder.type = "button";
+
+			stationFinder.addEventListener("click", () => {
+				// map.setCenter({
+				// 	lat: 24.30897440355017, 
+				// 	lng: 91.72918306593593
+				// });
+				axios.post(`${server}/api/getClosestStation`, {
+					lat: fromMarker.getPosition().lat(),
+					lng: fromMarker.getPosition().lng(),
+				}).then(res1 => {
+					formData.from = Number(res1.data.station_id);
+					axios.post(`${server}/api/getClosestStation`, {
+						lat: toMarker.getPosition().lat(),
+						lng: toMarker.getPosition().lng(),
+					}).then(res2 => {
+						formData.to = Number(res2.data.station_id);
+						for (const st of stations) {
+							if (st.id == formData.to) formData.toInput = st, formData.toName = st.name, formData.toDist = st.district;
+							if (st.id == formData.from) formData.fromInput = st, formData.fromName = st.name, formData.fromDist = st.district;
+						};
+						console.log(formData);
+					}).catch(err => { console.log(err) });
+				}).catch(err => { console.log(err) });
+			});
+
+			map.controls[google.maps.ControlPosition.BOTTOM_CENTER].push(stationFinder);
+		}).catch(err => { console.log(err) });
+
 		axios.post(`${server}/api/getClasses`).then(res1 => {
 			classes = res1.data;
 			formData.class = 'SHOVAN';
 			axios.defaults.withCredentials = true;
 			axios.post(`${server}/api/getStations`).then(res2 => {
 				stations = [...res2.data];
-				const urlParams = new URLSearchParams(window.location.search);
-				if (urlParams.get('class') != null && urlParams.get('from') != null && urlParams.get('to') != null && urlParams.get('date') != null) {
-					console.log(urlParams.get('class'));
-					formData.from = Number(urlParams.get('from'));
-					formData.to = Number(urlParams.get('to'));
-					formData.date = urlParams.get('date');
-					formData.class = urlParams.get('class');
-					onSearch();
+				console.log(stations);
+				for (const s of stations) {
+					s.marker = new google.maps.Marker({
+						position: { lat: s.coords.x, lng: s.coords.y },
+						title: `${s.name} (${s.id})`,
+						map: map,
+						icon: stationIcon,
+						visible: s.name===s.district || s.name==='Chittagong' || s.name==='Kolkata'? true:false,
+						zIndex: 10
+					});
 				};
-			}).catch(function (err) {
-				console.log(err);
-			});
+				map.addListener("zoom_changed", () => {
+					let zoom = map.getZoom();
+					for (const s of stations) 
+						if (s.name != s.district && s.name != 'Chittagong')
+							s.marker.setVisible(zoom >= 10);
+				});
+				// axios.post(`${server}/api/getTracks`).then(res3 => {
+				// 	trackNodes = [...res3.data];
+				// 	console.log(trackNodes);
+				// 	for (const n of trackNodes) {
+				// 		trackCoords.push({ lat: n.coords.x, lng: n.coords.y });
+				// 		// n.marker = new google.maps.Marker({
+				// 		// 	position: { lat: n.coords.x, lng: n.coords.y },
+				// 		// 	map: map,
+				// 		// 	icon: {
+				// 		// 		path: google.maps.SymbolPath.CIRCLE,
+				// 		// 		fillColor: '#8B4',
+				// 		// 		fillOpacity: 1,
+				// 		// 		strokeWeight: 0,
+				// 		// 		scale: 4,
+				// 		// 	},
+				// 		// 	optimized: false,
+				// 		// 	zIndex: 2
+				// 		// });
+				// 	};
+				// 	console.log(trackCoords);
+				// 	// new google.maps.Polyline({
+				// 	// 	map: map,
+				// 	// 	path: trackCoords,
+				// 	// 	geodesic: true,
+				// 	// 	strokeColor: "#FF0000",
+				// 	// 	strokeOpacity: 1.0,
+				// 	// 	strokeWeight: 2,
+				// 	// });
 
-		}).catch(function (err) {
-			console.log(err);
-		});
+
+					const urlParams = new URLSearchParams(window.location.search);
+					if (urlParams.get('class') != null && urlParams.get('from') != null && urlParams.get('to') != null && urlParams.get('date') != null) {
+						console.log(urlParams.get('class'));
+						formData.from = Number(urlParams.get('from'));
+						formData.to = Number(urlParams.get('to'));
+						formData.date = urlParams.get('date');
+						formData.class = urlParams.get('class');
+						onSearch();
+					};
+				// }).catch(err => { console.log(err) });
+			}).catch(err => { console.log(err) });
+		}).catch(err => { console.log(err) });
 	});
 
 	const onMultConn = (res, mode) => {
@@ -129,12 +313,7 @@
 				routes[i].tr_2.isOpen = false;
 				if (mode==="CONN_3") routes[i].tr_3.isOpen = false;
 			};
-			formStyle = "flex-lg-row"
-			document.getElementById("searchform").style.width = "86vw";
-			document.getElementById("search-heading").style.textAlign = "center";
-			document.getElementById("search-heading").style.marginBottom = "5vh";
-			window.history.pushState (formData, `${formData.fromName} to ${formData.toName} — RailBuddy`, 
-							`search?from=${formData.from}&to=${formData.to}&date=${formData.date}&class=${formData.class}`);
+			rearrangeSearchUI();
 			connMode = mode;
 		}).catch(err => { console.log(err) });
 		console.log(routes);
@@ -186,12 +365,7 @@
 				isOpen = Array(trains.length).fill(false);
 				for (let i=0; i<trains.length; i++) if (trains[i].has_desired_class) isOpen[i] = true;
 				console.log(trains);
-				formStyle = "flex-lg-row"
-				document.getElementById("searchform").style.width = "86vw";
-				document.getElementById("search-heading").style.textAlign = "center";
-				document.getElementById("search-heading").style.marginBottom = "5vh";
-				window.history.pushState (formData, `${formData.fromName} to ${formData.toName} — RailBuddy`, 
-								`search?from=${formData.from}&to=${formData.to}&date=${formData.date}&class=${formData.class}`);
+				rearrangeSearchUI();
 				connMode = "DIRECT";
 			};
 		}).catch(err => { console.log(err) });
@@ -209,45 +383,49 @@
 
 </script>
 
-
-<div id="searchform" class="my-5 d-flex flex-column justify-content-center">
-	<p id="search-heading" class="h2 mt-2 mb-4 mt-md-5"><Icon name="search" />   Search and Buy Tickets</p>
-	<Form id = "searchformform" class="my-3 d-flex flex-column {formStyle} justify-content-center">
-		<FormGroup class="mx-1" >
-			<Label class="text-muted" for="to"><small>Start from (Origin Station)                     </small></Label>
-			<Select id = "from" {optionIdentifier} {labelIdentifier} items={stations} {groupBy} on:select={e => {formData.from = e.detail.id}}
-					containerStyles='height: calc(3.5rem + 2px); border-radius: 0.7rem' bind:value={formData.fromInput}/>
-		</FormGroup>
-		{#if formStyle === "flex-lg-row"}
-			<Button class="mx-lg-1 mx-auto border-success flimp" color="light" style='border-radius: 0.7rem'
-					on:click={e => {e.preventDefault(); [formData.toInput, formData.fromInput] = [formData.fromInput, formData.toInput]}} >
-				<Icon class='d-none d-lg-block' name="arrow-left-right" />
-				<Icon class='d-block d-lg-none' name="arrow-down-up" />
-			</Button>
-		{/if}
-		<FormGroup class="mx-1">
-			<Label class="text-muted" for="to"><small>Travel to (Destination Station)                      </small></Label>
-			<Select id="to" {optionIdentifier} {labelIdentifier} items={stations} {groupBy} on:select={e => {formData.to = e.detail.id}}
-					containerStyles='height: calc(3.5rem + 2px); border-radius: 0.7rem' bind:value={formData.toInput}/>
-		</FormGroup>
-		<FormGroup class="mx-1">
-			<Label class="text-muted" for="date"><small>Date of Travel</small></Label>
-			<Flatpickr 	options={{dateFormat: "Y-m-d", minDate: "today", maxDate: dayjs().add(6, 'day').toDate()}} 
-				bind:formattedValue={formData.date} name="date" value={new Date()} class='rb-datepicker'/>
+<div class="rowdiv my-md-4 d-flex flex-column {mapFlexStyle} justify-content-center align-items-center">
+	<div id="searchform" class="my-3 d-flex flex-column justify-content-center">
+		<p id="search-heading" class="h2 mt-2 mb-4 mt-md-5"><Icon name="search" />   Search and Buy Tickets</p>
+		<Form id = "searchformform" class="my-3 d-flex flex-column {formStyle} justify-content-center">
+			<FormGroup class="mx-1" >
+				<Label class="text-muted" for="to"><small>Start from (Origin Station)                     </small></Label>
+				<Select id = "from" {optionIdentifier} {labelIdentifier} items={stations} {groupBy} on:select={e => {formData.from = e.detail.id}}
+						containerStyles='height: calc(3.5rem + 2px); border-radius: 0.7rem' bind:value={formData.fromInput}
+						placeholder = "Select here or drag 🅰️ on the map and autofill..."/>
 			</FormGroup>
-		<FormGroup class="mx-1">
-			<Label class="text-muted" for="class"><small>Seating Class</small></Label>
-			<Input 	type="select" name="class" id="class" bind:value={formData.class}
-					style='height: calc(3.5rem + 2px); border-radius: 0.7rem'>
-				{#each classes as cls} 
-					<option value={cls}>{cls}</option>
-				{/each}
-			</Input>
-		</FormGroup>
-	</Form>
-	<Button class="p-2 mx-auto bg-success shadow" style="width:30%; border-radius:0.5rem" on:click={onSearch}>
-		Search &nbsp; <Icon name="search" />
-	</Button>
+			{#if formStyle === "flex-lg-row"}
+				<Button class="mx-lg-1 mx-auto border-success flimp" color="light" style='border-radius: 0.7rem'
+						on:click={e => {e.preventDefault(); [formData.toInput, formData.fromInput] = [formData.fromInput, formData.toInput]}} >
+					<Icon class='d-none d-lg-block' name="arrow-left-right" />
+					<Icon class='d-block d-lg-none' name="arrow-down-up" />
+				</Button>
+			{/if}
+			<FormGroup class="mx-1">
+				<Label class="text-muted" for="to"><small>Travel to (Destination Station)                      </small></Label>
+				<Select id="to" {optionIdentifier} {labelIdentifier} items={stations} {groupBy} on:select={e => {formData.to = e.detail.id}}
+						containerStyles='height: calc(3.5rem + 2px); border-radius: 0.7rem' bind:value={formData.toInput}
+						placeholder = "Select here or drag 🅱️ on the map and autofill..."/>
+			</FormGroup>
+			<FormGroup class="mx-1">
+				<Label class="text-muted" for="date"><small>Date of Travel</small></Label>
+				<Flatpickr 	options={{dateFormat: "Y-m-d", minDate: "today", maxDate: dayjs().add(6, 'day').toDate()}} 
+					bind:formattedValue={formData.date} name="date" value={new Date()} class='rb-datepicker'/>
+				</FormGroup>
+			<FormGroup class="mx-1">
+				<Label class="text-muted" for="class"><small>Seating Class</small></Label>
+				<Input 	type="select" name="class" id="class" bind:value={formData.class}
+						style='height: calc(3.5rem + 2px); border-radius: 0.7rem'>
+					{#each classes as cls} 
+						<option value={cls}>{cls}</option>
+					{/each}
+				</Input>
+			</FormGroup>
+		</Form>
+		<Button class="p-2 mx-auto bg-success shadow" style="width:30%; border-radius:0.5rem" on:click={onSearch}>
+			Search &nbsp; <Icon name="search" />
+		</Button>
+	</div>
+	<div id="map" bind:this={mapDiv}></div>
 </div>
 
 <br>
@@ -367,11 +545,11 @@
 <style>
 	@import "https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css";
 
-	
+
 	@media only screen and (max-width: 768px) {
 		:global(#searchform) {
 			width: 86vw;
-			margin-left: 7vw;
+			margin-left: 3vw;
 		}
 
 		:global(.train-list) {
@@ -382,6 +560,14 @@
 		:global(.train-list-mult) {
 			width: 80vw;
 			margin-left: 7vw;
+		}
+
+		:global(#map) {
+			height: 35vh;
+			width: 90vw;
+			visibility: visible;
+			border-radius: 2rem;
+			box-shadow: inset 3rem 3rem 4rem black;
 		}
 
 	}
@@ -398,6 +584,16 @@
 		:global(.train-list-mult) {
 			width: 73vw;
 			margin-left: 10vw;
+		}
+		:global(#map) {
+			height: 75vh;
+			width: 40%;
+			margin-top: 3rem;
+			margin-right: 4rem;
+			visibility: visible;
+			border-radius: 2rem;
+			box-shadow: inset 3rem 3rem 4rem black;
+
 		}
 	}
 

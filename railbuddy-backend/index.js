@@ -12,6 +12,12 @@ const crypto = require('crypto');
 const dotenv = require('dotenv');
 const url = require('url')
 const { v4: uuidv4 } = require('uuid');
+const pdf = require("pdf-creator-node");
+const fs = require("fs");
+const multer = require('multer');
+const html = fs.readFileSync("src/ticket.html", "utf8");
+const { Readable } = require('stream');
+
 
 dotenv.config();
 
@@ -30,8 +36,6 @@ const SSLCommerzPayment = require('sslcommerz-lts')
 const store_id = process.env.SSLCZ_STORE_ID;
 const store_passwd = process.env.SSLCZ_PASSWORD;
 const is_live = false;
-
-console.log(process.env.SESSION_SECRET);
 
 const getSHA256 = (input) => {
     return crypto.createHash('sha256').update(JSON.stringify(input)).digest('hex');
@@ -286,7 +290,13 @@ app.post('/api/updatePassword', (req,res) => {
 });
 
 app.post('/api/getStations', (req,res) => {
-    dbclient.query("SELECT id, name, district FROM station WHERE id < 900 ORDER BY district ASC, name ASC").then(qres => {
+    dbclient.query("SELECT id, name, district, coords FROM station WHERE id < 900 ORDER BY district ASC, name ASC").then(qres => {
+        res.send(qres.rows);
+    }).catch(e => console.error(e.stack));
+});
+
+app.post('/api/getTracks', (req,res) => {
+    dbclient.query("SELECT coords FROM station").then(qres => {
         res.send(qres.rows);
     }).catch(e => console.error(e.stack));
 });
@@ -313,6 +323,16 @@ app.post('/api/getCompTypes', (req,res) => {
     }).catch(e => console.error(e.stack));
 });
 
+app.post('/api/getRqstTypes', (req,res) => {
+    if (req.session.userid) {
+        dbclient.query("SELECT unnest(enum_range(NULL::request_category));").then(qres => {
+            let nameArr = [];
+            qres.rows.forEach(obj => { nameArr.push(obj.unnest) });
+            res.send(nameArr);
+        }).catch(e => console.error(e.stack));
+    } else res.send(["Foreigner Account Registration", "Reclaim Occupied NID for New Account"]);
+});
+
 app.post('/api/getComplaints', (req, res) => {
     console.log(req.session);
     if (req.session.userid) {
@@ -335,6 +355,49 @@ app.post('/api/getComplaints', (req, res) => {
     };
 });
 
+app.post('/api/getClosestStation', (req, res) => {
+    console.log(req.body);
+    dbclient.query(
+        `select id from station where id<900 order by ((coords[0]-$1)^2 + (coords[1]-$2)^2) limit 1`, 
+        [req.body.lat, req.body.lng]
+    ).then(qres => {
+        //console.log(qres);
+        if (qres.rowCount === 0) res.send({ 
+            success: false,
+        });
+        else {
+            res.send({
+                station_id: qres.rows[0].id,
+                success: true,
+            });
+        };
+    }).catch(e => console.error(e.stack));
+});
+
+app.post('/api/getRequests', (req, res) => {
+    console.log(req.session);
+    if (req.session.userid) {
+        dbclient.query(
+            `select *, lpad(id::varchar, 8, '0')::char(8) as request_id 
+            from request where user_mobile=$1 order by req_time desc limit 10`, [req.session.userid]
+        ).then(qres => {
+            //console.log(qres);
+            if (qres.rowCount === 0) res.send({ 
+                success: false,
+            });
+            else {
+                let reqObj = [...qres.rows];
+                console.log(reqObj);
+                //for (const rq of reqObj) rq.doc = Buffer.from(rq.doc.data);
+                res.send({
+                    requests: [...reqObj],
+                    success: true,
+                });
+            };
+        }).catch(e => console.error(e.stack));
+    };
+});
+
 app.post('/api/makeComplaint', (req,res) => {
     dbclient.query(
         `INSERT INTO complaint (category, user_mobile, req_time, associated_station, associated_train, req_text) values ($1, $2, NOW(), $3, $4, $5)`, 
@@ -350,6 +413,42 @@ app.post('/api/makeComplaint', (req,res) => {
             });
         };
     }).catch(e => console.error(e.stack));
+});
+
+app.post('/api/makeRequest', multer().single('doc'), (req,res) => {
+    // console.log(req.body);
+    // fs.writeFileSync("src/" + req.file.originalname, req.file.buffer);
+    if (req.session.userid) {
+        dbclient.query(
+            `INSERT INTO request (category, user_mobile, req_time, req_text, doc, docname) values ($1, $2, NOW(), $3, $4, $5)`, 
+            [req.body.category, req.session.userid, req.body.text, req.file.buffer, req.file.originalname]
+        ).then(qres => {
+            //console.log(qres);
+            if (qres.rowCount === 1) res.send({ 
+                success: true,
+            });
+            else if (qres.rowCount === 0) {
+                res.send({
+                    success: false,
+                });
+            };
+        }).catch(e => console.error(e.stack));
+    } else {
+        dbclient.query(
+            `INSERT INTO request (category, user_mobile, req_time, req_text, doc, docname) values ($1, $2, NOW(), $3, $4, $5)`, 
+            [req.body.category, "ANONYMOUS", req.body.text, req.file.buffer, req.file.originalname]
+        ).then(qres => {
+            //console.log(qres);
+            if (qres.rowCount === 1) res.send({ 
+                success: true,
+            });
+            else if (qres.rowCount === 0) {
+                res.send({
+                    success: false,
+                });
+            };
+        }).catch(e => console.error(e.stack));
+    };
 });
 
 app.post('/api/search', (req, res) => {
@@ -567,7 +666,7 @@ app.post('/api/pay_success', (req, res) => {
                     // console.log(req.session);
                     req.session.userid = req.body.value_d;
                     // console.log(req.session);
-                    res.redirect('/pay_success' + req.body.value_a);
+                    res.redirect('/pay_success' + req.body.value_a + "&pid=" + req.body.tran_id);
                     // console.log(req.session);
                 });
                 console.log(req.session);
@@ -632,7 +731,7 @@ app.post('/api/getPurchases', (req, res) => {
         dbclient.query(
             `select (select distinct get_train_name(train_id) from bogie as B where B.class_id=P.class_id) as train_name,
             (select distinct class_name from bogie as B where B.class_id=P.class_id) as class_name, *
-            from purchases as P where mobile=$1`, [req.session.userid]
+            from purchases as P where mobile=$1 order by timestamp desc`, [req.session.userid]
         ).then(qres => {
             //console.log(qres);
             if (qres.rows.length === 0) res.send({ 
@@ -716,6 +815,63 @@ app.post('/api/ticketVerif', (req, res) => {
         success: false,
     });
 });
+
+app.get('/api/getTicketPDF', (req, res) => {
+    if (req.session.userid) {
+        dbclient.query(
+           `SELECT  get_train_name(train_id) as train_name,
+                    (coach_letter || '-' || (select mat[seat_row][seat_col] 
+                                            from seat_config as SC
+                                            where class_id=substring(ticket_id::varchar, 1, 8)::int AND coach=coach_letter)) as seat,
+                    substring(ticket_id, 23)::int as bStation, get_station_name(substring(ticket_id, 23)::int) as bStation_name, 
+                    dest as dStation, get_station_name(dest) as dStation_name, tickets.name as buyername,
+                    to_char(price * 0.15, '99G99G999D99') as vat, to_char(price / 1.15, '99G99G999D99') as base,
+                    to_char(next_departure(train_id, substring(ticket_id, 23)::int, day_of_travel), 'HH12:MIAM') as departure, *
+            FROM
+                tickets JOIN purchases on (purchases.purchase_id = tickets.purchase_id) 
+                        JOIN bogie on (bogie.class_id = purchases.class_id) 
+                        JOIN train on (train.id = bogie.train_id)
+            WHERE ticket_id=$1 AND mobile=$2`, [req.query.tid, req.session.userid]
+        ).then(qres => {
+            console.log(qres.rows);
+            if (qres.rows.length === 0) res.send("User login is required to access the ticket.");
+            else {
+                let t = qres.rows[0];
+                t.day_of_travel = (new Date(t.day_of_travel)).toDateString();
+                t.timestamp = (new Date(t.timestamp)).toLocaleString();
+                t.qrURL = `https://chart.googleapis.com/chart?chs=250x250&cht=qr&chl=http://harmony-open.com:6984/verif?tid=${t.ticket_id}%26u=${t.mobile}`
+                let document = { html: html, data: { t: t }, path: "./output.pdf", type: "stream" };
+                pdf.create(document, {
+                    height: "600px",
+                    width: "424px",
+                }).then(pres => {
+                    console.log(pres);
+                    res.setHeader('Content-Type', 'application/pdf');
+                    res.setHeader('Content-Disposition', 'inline; filename=RailBuddy_' + t.ticket_id + '.pdf');
+                    pres.pipe(res);
+                }).catch(e => console.error(e.stack));
+            };
+        }).catch(e => console.error(e.stack));
+    } else res.send("User login is required to access the ticket.");
+});
+
+app.get('/api/getUserDoc', (req, res) => {
+    if (req.session.userid) {
+        dbclient.query(
+           `SELECT doc, docname FROM request WHERE id=$1 and user_mobile=$2`, [Number(req.query.rid), req.session.userid]
+        ).then(qres => {
+            console.log(qres.rows);
+            if (qres.rows.length === 0) res.send("User login is required to access the ticket.");
+            else {
+                const stream = Readable.from(qres.rows[0].doc);
+                // res.setHeader('Content-Type', 'application/pdf');
+                res.setHeader('Content-Disposition', 'inline; filename=' + qres.rows[0].docname);
+                stream.pipe(res);
+            };
+        }).catch(e => console.error(e.stack));
+    } else res.send("User login is required to access the ticket.");
+});
+
 
 app.post('/api/getRoute', (req, res) => {
     console.log (req.body);

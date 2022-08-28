@@ -1,7 +1,9 @@
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.0/font/bootstrap-icons.css"/>
 <script>
-	import { Styles, Form, FormGroup, Input, Button, Label, Table } from "sveltestrap";
+	import { Styles, Form, FormGroup, Input, Button, Label, Table, Icon } from "sveltestrap";
 	import axios from "axios";
 	import PurchaseDetails from "./ui/PurchaseDetails.svelte";
+	import { onMount } from "svelte";
 
 	let formData = {
 		id: '',
@@ -16,8 +18,7 @@
 		return (str.substring(4, str.length));
 	};
 
-	const onVerif = (event) => {
-		event.preventDefault();
+	const verif = (show) => {
 		axios.post("/api/ticketVerif", {
 			mobile: formData.mobile,
 			id: formData.id,
@@ -26,12 +27,27 @@
 			if (res.data.success) {
 				purchase = {...res.data.purchase}
 				showPurchase = true;
+				if (show) showTickets = true;
 			} else {
 				alert("No matching records found!");
 			};
 		}).catch(function (err) {
 			console.log(err);
 		});
+	}
+
+	onMount (event => {
+		const urlParams = new URLSearchParams(window.location.search);
+		if (urlParams.get('tid') != null && urlParams.get('u') != null) {
+			formData.id = urlParams.get('tid');
+			formData.mobile = urlParams.get('u');
+			verif(true);
+		};
+	})
+
+	const onVerif = (event) => {
+		event.preventDefault();
+		verif(false);
 	};
 
 </script>
@@ -99,16 +115,22 @@
 					<th><small>Passenger Name</small></th>
 					<th><small>NID / Passport No. / Birth Certificate No.</small></th>
 					<th><small>Seat</small></th>
+					<th><small></small></th>
 				</tr>
 				{#each purchase.tickets as t, i(i)} 
 					<tr>
 						<td><small>{i+1}</small></td>
-						<td><small 	style="font-size: 0.8rem; font-family:monospace; cursor:pointer"
-									class='text-success text-decoration-underline'> {t.ticket_id}
-						</small></td>
+						<td><a 	style="font-size: 0.8rem; font-family:monospace; cursor:pointer"
+								href={"/api/getTicketPDF?tid=" + t.ticket_id} target="_blank" 
+								class='text-success text-decoration-underline'> {t.ticket_id}
+						</a></td>
 						<td><small>{t.name}</small></td>
 						<td><small>{t.person_id}</small></td>
 						<td><small>{t.seat}</small></td>
+						<td><a  href={"/api/getTicketPDF?tid=" + t.ticket_id} target="_blank" 
+								style="font-size: 0.8rem; cursor:pointer" class='text-success text-decoration-underline'>
+							Print <Icon name="box-arrow-up-right"/>
+						</a></td>
 					</tr>
 				{/each}
 			</tbody>

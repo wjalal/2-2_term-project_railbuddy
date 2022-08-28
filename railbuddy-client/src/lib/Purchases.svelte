@@ -15,6 +15,13 @@
 			purchaseData =  {...res.data};
 			isOpen = Array(purchaseData.history.length).fill(false);
 			console.log(purchaseData);
+			const urlParams = new URLSearchParams(window.location.search);
+			if (purchaseData.success === true && urlParams.get('pid') != null) {
+				for (let i=0; i < purchaseData.history.length; i++) {
+					if (urlParams.get('pid') === purchaseData.history[i].purchase_id) isOpen[i] = true;
+				};
+			};
+			window.history.pushState (null, "RailBuddy", "/purchases");
 		}).catch(function (err) {
 			console.log(err);
 		});
