@@ -440,6 +440,19 @@ app.post('/api/sendReply', (req, res) => {
         }).catch(e => console.error(e.stack));
 });
 
+app.post('/api/setOffset', (req, res) => {
+    console.log (req.body);
+    console.log('ehfrgeighiuhvhe');
+        dbclient.query(`call update_schedule($1,$2,'$3:$4:$5')`,
+        [req.body.train, req.body.date, req.body.hour, req.body.minute, req.body.sec]
+        ).then(qres => {
+            res.send({
+                success: true,
+            });
+            
+        }).catch(e => console.error(e));
+});
+
 app.post('/api/validateSendNewMobileOTP', (req, res) => {
     if (req.session.userid) {
         console.log(req.body);

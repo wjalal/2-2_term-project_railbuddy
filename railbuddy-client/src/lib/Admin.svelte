@@ -4,7 +4,7 @@
 				Modal, ModalBody, ModalFooter, ModalHeader, Badge, Container, Row, Col } from "sveltestrap";
 	import axios from "axios";
 	import ComplaintAdmin from "./ui/ComplaintAdmin.svelte";
-	//import ScheduleUpdate from "./ui/ScheduleUpdate.svelte";
+	import ScheduleUpdate from "./ui/ScheduleUpdate.svelte";
 	//import ComplaintClient from "./ui/ComplaintClient.svelte";
 	let showComplaints = false, scheduleUpdate = false;
 	const server = 'http://localhost';
@@ -12,21 +12,24 @@
 
 <div id="admincontrols">
 	{#if !showComplaints && !scheduleUpdate}
-	<Form class="my-5 d-flex flex-row justify-content-center" >
-		<Button class="w-10 p-3 mx-auto" color="success" on:click={() => { scheduleUpdate = !scheduleUpdate}}
+	<Form class="my-5 d-flex flex-row justify-content-center w-100" >
+		<Button class="w-25 p-3 mx-auto adminoptions" color="success" on:click={() => { scheduleUpdate = !scheduleUpdate}}
 			>Schedule Controls</Button
 		>
-        <Button class="w-10 p-3 mx-auto" color="success" on:click={() => { showComplaints = !showComplaints}}
+        <Button class="w-25 p-3 mx-auto adminoptions" color="success" on:click={() => { showComplaints = !showComplaints}}
 			>Respond to Complaint</Button
 		>
-        <Button class="w-10 p-3 mx-auto" color="success" 
+        <Button class="w-10 p-3 mx-auto adminoptions" color="success"
+			>Respond to Requests</Button
+		>
+        <Button class="w-10 p-3 mx-auto adminoptions" color="success" 
 			>Train Edit lol</Button
 		>
 	</Form>
-	<!-- {:else if scheduleUpdate}
+	{:else if scheduleUpdate}
 		<ScheduleUpdate server = {server}/>
 		<Button class="mb-4 mx-md-5 mx-1 display-flex flex-column border-danger bg-white" 
-		on:click={() => scheduleUpdate = !scheduleUpdate}>Back</Button> -->
+		on:click={() => scheduleUpdate = !scheduleUpdate}>Back</Button>
 	{:else}
 		<ComplaintAdmin server = {server}/>
 		<Button class="mb-4 mx-md-5 mx-1 display-flex flex-column border-danger bg-success" 
@@ -52,4 +55,9 @@
 			margin: 5vw;
 		}
 	}
+
+		:global(.adminoptions) {
+			margin: 5vw;
+			height: 10rem;
+		}
 </style>
