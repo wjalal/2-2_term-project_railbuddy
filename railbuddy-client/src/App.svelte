@@ -12,6 +12,7 @@
 	import Password from "./lib/Password.svelte";
 	import UpdateMobile from "./lib/UpdateMobile.svelte";
 	import AdminLogin from "./lib/AdminLogin.svelte";
+	import Admin from "./lib/Admin.svelte";
 	import railbuddyLogo from "./assets/railBuddy.png";
 	import axios from 'axios';
 	import { userName } from "./userStore.js";
@@ -142,6 +143,9 @@
 		</Route>
 		<Route path="admin-login">
 			<AdminLogin/>
+		</Route>
+		<Route path="admin">
+			<Admin/>
 		</Route>
 	</main>
 </Router>

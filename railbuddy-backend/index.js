@@ -407,6 +407,39 @@ app.post('/api/getRoute', (req, res) => {
     }
 }); 
 
+app.post('/api/getComplaints', (req, res) => {
+    console.log (req.body);
+    console.log('ehfrgeighiuhvhe');
+        dbclient.query(`SELECT * from complaint join customer on complaint.user_mobile = customer.mobile;`,
+        ).then(qres => {
+            if (qres.rows.length === 0){
+                res.send ( {success: false} );
+            }
+            else res.send ( {
+                success: true, 
+                route: qres.rows
+                
+            });
+        }).catch(e => console.error(e.stack));
+});
+
+app.post('/api/sendReply', (req, res) => {
+    console.log (req.body);
+    console.log('ehfrgeighiuhvhe');
+        dbclient.query(`UPDATE complaint SET res_text = $1, res_time = current_timestamp WHERE id = $2`,
+        [req.body.reply, req.body.id]
+        ).then(qres => {
+            if (qres.rowCount === 1) res.send({ 
+                success: true,
+            });
+            else if (qres.rowCount === 0) {
+                res.send({
+                    success: false,
+                });
+            };
+        }).catch(e => console.error(e.stack));
+});
+
 app.post('/api/validateSendNewMobileOTP', (req, res) => {
     if (req.session.userid) {
         console.log(req.body);
