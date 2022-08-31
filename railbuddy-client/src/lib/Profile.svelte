@@ -58,7 +58,9 @@
 			}).catch(function (err) {
 				console.log(err);
 			});
-		};
+		} else {
+            alert("Invalid Input, Please check your entries again.")
+        }
 	};
 
 </script>

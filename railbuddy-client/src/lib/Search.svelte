@@ -6,6 +6,11 @@
 				Modal, ModalBody, ModalFooter, ModalHeader, Badge, Container, Row, Col, Spinner } from "sveltestrap";
 	import axios from "axios";
 	import stationIcon from "../assets/station.png";
+	import img1 from "../assets/img1.jpg";
+	import img2 from "../assets/img2.jpg";
+	import img3 from "../assets/img3.jpg";
+	import img4 from "../assets/img4.jpg";
+	import img5 from "../assets/img5.jpg";
 	import TrainInfo from "./ui/TrainInfo.svelte";
 	import TrainDetails from "./ui/TrainDetails.svelte";
 	import TrainListEntry from "./ui/TrainListEntry.svelte";
@@ -16,6 +21,9 @@
 	import dayjs from 'dayjs';
 	import { loading } from '../userStore';
 	import { Loader } from "@googlemaps/js-api-loader"
+
+	const items = [ img1, img2, img3, img4, img5 ];
+	let activeIndex = 0;
 
 	const getRealISODate = (date) => {
 		return (new Date(date.getTime() - (new Date()).getTimezoneOffset() * 60000)).toISOString().substring(0, 10);
@@ -44,25 +52,25 @@
 	const server = '';
 
 	axios.interceptors.request.use(
-      (config) => {
-        loading.set(true);
-        return config;
-      },
-      (error) => {
-        loading.set(false);
-        return Promise.reject(error);
-      }
+		(config) => {
+			loading.set(true);
+			return config;
+		},
+		(error) => {
+			loading.set(false);
+			return Promise.reject(error);
+		}
     );
 
     axios.interceptors.response.use(
-      (response) => {
-        loading.set(false);
-        return response;
-      },
-      (error) => {
-        loading.set(false);
-        return Promise.reject(error);
-      }
+		(response) => {
+			loading.set(false);
+			return response;
+		},
+		(error) => {
+			loading.set(false);
+			return Promise.reject(error);
+		}
     );
 
 	const loader = new Loader({
@@ -81,6 +89,7 @@
 		minZoom: 6,
 		maxZoom: 16,
 		zoom: 8,
+		gestureHandling: 'greedy',
 		mapTypeControl: false,
 		fullscreenControl: false,
 		streetViewControl: false,
@@ -163,7 +172,7 @@
 				zIndex: 20
 			});
 			const stationFinder = document.createElement("button");
-			stationFinder.style.backgroundColor = "var(--bs-danger)";
+			stationFinder.style.backgroundColor = "var(--bs-success)";
 			stationFinder.style.border = "0";
 			stationFinder.style.borderRadius = "0.8rem";
 			stationFinder.style.boxShadow = "0 2px 6px rgba(0,0,0,.3)";
@@ -179,10 +188,6 @@
 			stationFinder.type = "button";
 
 			stationFinder.addEventListener("click", () => {
-				// map.setCenter({
-				// 	lat: 24.30897440355017, 
-				// 	lng: 91.72918306593593
-				// });
 				axios.post(`${server}/api/getClosestStation`, {
 					lat: fromMarker.getPosition().lat(),
 					lng: fromMarker.getPosition().lng(),
@@ -201,73 +206,65 @@
 					}).catch(err => { console.log(err) });
 				}).catch(err => { console.log(err) });
 			});
-
 			map.controls[google.maps.ControlPosition.BOTTOM_CENTER].push(stationFinder);
-		}).catch(err => { console.log(err) });
 
-		axios.post(`${server}/api/getClasses`).then(res1 => {
-			classes = res1.data;
-			formData.class = 'SHOVAN';
-			axios.defaults.withCredentials = true;
-			axios.post(`${server}/api/getStations`).then(res2 => {
-				stations = [...res2.data];
-				console.log(stations);
-				for (const s of stations) {
-					s.marker = new google.maps.Marker({
-						position: { lat: s.coords.x, lng: s.coords.y },
-						title: `${s.name} (${s.id})`,
-						map: map,
-						icon: stationIcon,
-						visible: s.name===s.district || s.name==='Chittagong' || s.name==='Kolkata'? true:false,
-						zIndex: 10
-					});
-				};
-				map.addListener("zoom_changed", () => {
-					let zoom = map.getZoom();
-					for (const s of stations) 
-						if (s.name != s.district && s.name != 'Chittagong')
-							s.marker.setVisible(zoom >= 10);
-				});
-				// axios.post(`${server}/api/getTracks`).then(res3 => {
-				// 	trackNodes = [...res3.data];
-				// 	console.log(trackNodes);
-				// 	for (const n of trackNodes) {
-				// 		trackCoords.push({ lat: n.coords.x, lng: n.coords.y });
-				// 		// n.marker = new google.maps.Marker({
-				// 		// 	position: { lat: n.coords.x, lng: n.coords.y },
-				// 		// 	map: map,
-				// 		// 	icon: {
-				// 		// 		path: google.maps.SymbolPath.CIRCLE,
-				// 		// 		fillColor: '#8B4',
-				// 		// 		fillOpacity: 1,
-				// 		// 		strokeWeight: 0,
-				// 		// 		scale: 4,
-				// 		// 	},
-				// 		// 	optimized: false,
-				// 		// 	zIndex: 2
-				// 		// });
-				// 	};
-				// 	console.log(trackCoords);
-				// 	// new google.maps.Polyline({
-				// 	// 	map: map,
-				// 	// 	path: trackCoords,
-				// 	// 	geodesic: true,
-				// 	// 	strokeColor: "#FF0000",
-				// 	// 	strokeOpacity: 1.0,
-				// 	// 	strokeWeight: 2,
-				// 	// });
-
-
-					const urlParams = new URLSearchParams(window.location.search);
-					if (urlParams.get('class') != null && urlParams.get('from') != null && urlParams.get('to') != null && urlParams.get('date') != null) {
-						console.log(urlParams.get('class'));
-						formData.from = Number(urlParams.get('from'));
-						formData.to = Number(urlParams.get('to'));
-						formData.date = urlParams.get('date');
-						formData.class = urlParams.get('class');
-						onSearch();
+			axios.post(`${server}/api/getClasses`).then(res1 => {
+				classes = res1.data;
+				formData.class = 'SHOVAN';
+				axios.defaults.withCredentials = true;
+				axios.post(`${server}/api/getStations`).then(res2 => {
+					stations = [...res2.data];
+					console.log(stations);
+					for (const s of stations) {
+						s.marker = new google.maps.Marker({
+							position: { lat: s.coords.x, lng: s.coords.y },
+							title: `${s.name} (${s.id})`,
+							map: map,
+							icon: stationIcon,
+							visible: s.name===s.district || s.name==='Chittagong' || s.name==='Kolkata'? true:false,
+							zIndex: 10
+						});
 					};
-				// }).catch(err => { console.log(err) });
+					map.addListener("zoom_changed", () => {
+						let zoom = map.getZoom();
+						for (const s of stations) 
+							if (s.name != s.district && s.name != 'Chittagong')
+								s.marker.setVisible(zoom >= 10);
+					});
+					axios.post(`${server}/api/getTracks`).then(res3 => {
+						trackNodes = JSON.parse(JSON.stringify(res3.data));
+						console.log(trackNodes);
+						for (let i=0; i<trackNodes.length; i++) {
+							let trackObjArr = [];
+							for (let j=0; j<trackNodes[i].track_array.length; j++) {
+								trackObjArr.push({
+									lat: trackNodes[i].track_array[j][0],
+									lng: trackNodes[i].track_array[j][1],
+								})
+							};
+							new google.maps.Polyline({
+								map: map,
+								path: trackObjArr,
+								geodesic: true,
+								strokeColor: "#788878",
+								strokeOpacity: 1.0,
+								strokeWeight: 2,
+							});
+						};
+						// 
+
+
+						const urlParams = new URLSearchParams(window.location.search);
+						if (urlParams.get('class') != null && urlParams.get('from') != null && urlParams.get('to') != null && urlParams.get('date') != null) {
+							console.log(urlParams.get('class'));
+							formData.from = Number(urlParams.get('from'));
+							formData.to = Number(urlParams.get('to'));
+							formData.date = urlParams.get('date');
+							formData.class = urlParams.get('class');
+							onSearch();
+						};
+					}).catch(err => { console.log(err) });
+				}).catch(err => { console.log(err) });
 			}).catch(err => { console.log(err) });
 		}).catch(err => { console.log(err) });
 	});
@@ -320,55 +317,57 @@
 	};
 
 	const onSearch = () => {
-		console.log(stations);
-		axios.defaults.withCredentials = true;
-		axios.post (`${server}/api/search`, {
-				from: formData.from,
-				to: formData.to,
-				date: formData.date,
-				class: formData.class
-		}).then(res => {
-			if (res.data.success === false) {
-				axios.defaults.withCredentials = true;
-				axios.post (`${server}/api/searchConnections2`, {
-						from: formData.from,
-						to: formData.to,
-						date: formData.date,
-						class: formData.class
-				}).then(res2 => {
-					if (res2.data.success === false) {
-						if (confirm("No direct or two-train connections found on specified date. Would you like to view routes that connect more than two trains?" +
-									"\nThis calculation can take from one to serval minutes and we recommend you to check if there are direct trains" +
-									" or two-train connections on alternative nearby dates before resorting to this.")) {
-							axios.defaults.withCredentials = true;
-							axios.post (`${server}/api/searchConnections3`, {
-									from: formData.from,
-									to: formData.to,
-									date: formData.date,
-									class: formData.class
-							}).then(res3 => {
-								if (res3.data.success === false) alert("No possible connections found between requested stations.");
-								else onMultConn(res3, "CONN_3");
-							}).catch(err => { console.log(err) });
-						};	
-					} else onMultConn(res2, "CONN_2");
-				}).catch(err => { console.log(err) });
-			} else {
-				for (const st of stations) {
-					if (st.id == formData.to) formData.toInput = st, formData.toName = st.name, formData.toDist = st.district;
-					if (st.id == formData.from) formData.fromInput = st, formData.fromName = st.name, formData.fromDist = st.district;
+		if (formData.from != 0 && formData.to != 0) {
+			console.log(stations);
+			axios.defaults.withCredentials = true;
+			axios.post (`${server}/api/search`, {
+					from: formData.from,
+					to: formData.to,
+					date: formData.date,
+					class: formData.class
+			}).then(res => {
+				if (res.data.success === false) {
+					axios.defaults.withCredentials = true;
+					axios.post (`${server}/api/searchConnections2`, {
+							from: formData.from,
+							to: formData.to,
+							date: formData.date,
+							class: formData.class
+					}).then(res2 => {
+						if (res2.data.success === false) {
+							if (confirm("No direct or two-train connections found on specified date. Would you like to view routes that connect more than two trains?" +
+										"\nThis calculation can take from one to serval minutes and we recommend you to check if there are direct trains" +
+										" or two-train connections on alternative nearby dates before resorting to this.")) {
+								axios.defaults.withCredentials = true;
+								axios.post (`${server}/api/searchConnections3`, {
+										from: formData.from,
+										to: formData.to,
+										date: formData.date,
+										class: formData.class
+								}).then(res3 => {
+									if (res3.data.success === false) alert("No possible connections found between requested stations.");
+									else onMultConn(res3, "CONN_3");
+								}).catch(err => { console.log(err) });
+							};	
+						} else onMultConn(res2, "CONN_2");
+					}).catch(err => { console.log(err) });
+				} else {
+					for (const st of stations) {
+						if (st.id == formData.to) formData.toInput = st, formData.toName = st.name, formData.toDist = st.district;
+						if (st.id == formData.from) formData.fromInput = st, formData.fromName = st.name, formData.fromDist = st.district;
+					};
+					formData.reClass = formData.class;
+					formData.reDate = formData.date;
+					connMode = "NONE";
+					trains = [...res.data.trains];
+					isOpen = Array(trains.length).fill(false);
+					for (let i=0; i<trains.length; i++) if (trains[i].has_desired_class) isOpen[i] = true;
+					console.log(trains);
+					rearrangeSearchUI();
+					connMode = "DIRECT";
 				};
-				formData.reClass = formData.class;
-				formData.reDate = formData.date;
-				connMode = "NONE";
-				trains = [...res.data.trains];
-				isOpen = Array(trains.length).fill(false);
-				for (let i=0; i<trains.length; i++) if (trains[i].has_desired_class) isOpen[i] = true;
-				console.log(trains);
-				rearrangeSearchUI();
-				connMode = "DIRECT";
-			};
-		}).catch(err => { console.log(err) });
+			}).catch(err => { console.log(err) });
+		};
 	};
 
 	const collapse = (i) => {
@@ -382,6 +381,9 @@
 	};
 
 </script>
+
+<br>
+
 
 <div class="rowdiv my-md-4 d-flex flex-column {mapFlexStyle} justify-content-center align-items-center">
 	<div id="searchform" class="my-3 d-flex flex-column justify-content-center">
@@ -541,6 +543,19 @@
 						toggle={()=>{}} size='xs'>
 	<Spinner color='light' style="width: 33vh; height: 33vh; position:fixed; top:33vh; left: 50vw; margin-left:-17.5vh"/>
 </div> {/if}
+
+<!-- <Carousel {items} bind:activeIndex style='width: 70vw; margin: rem;'>
+	<div class="carousel-inner" style=' border-radius: 2rem'>
+	  {#each items as item, index}
+		<CarouselItem bind:activeIndex itemIndex={index}>
+		  <img src={item} class="d-block w-100" alt={`${item} ${index + 1}`} />
+		</CarouselItem>
+	  {/each}
+	</div>
+  
+	<CarouselControl direction="prev" bind:activeIndex {items} />
+	<CarouselControl direction="next" bind:activeIndex {items} />
+</Carousel> -->
 
 <style>
 	@import "https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css";

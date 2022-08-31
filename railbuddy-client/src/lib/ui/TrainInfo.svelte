@@ -145,7 +145,10 @@
                 qString: window.location.href.substring(window.location.origin.length + 7, window.location.href.length)
             }).then(res => {
                 console.log(res);
-                window.location.replace(res.data);
+                if (res.data.success === false && res.data.quota === 'full') {
+                    alert("You have already made purchases for 3 different trains (max limit) today.");
+                    return;
+                } else window.location.replace(res.data);
             }).catch(function (err) {
 			    console.log(err);
 		    });   

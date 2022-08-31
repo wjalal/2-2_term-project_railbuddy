@@ -46,19 +46,24 @@
 		fD.append("doc", formData.doc.files[0]);
 		fD.append("text", formData.text);
 		fD.append("category", formData.category);
-		axios.post(`${server}/api/makeRequest`, fD, {
-			headers: {
-				'Content-Type': 'multipart/form-data'
-			}
-		}).then(res => {
-			console.log(res);
-			if (res.data.success) {
-				formData.station = null, formData.train = null, formData.text = '', formData.category = ''; 
-				refreshHistory();
-			} else {
-				alert("Request Submission Failed!");
-			};
-		}).catch(err => { console.log(err) });
+        if(!formData.doc.files[0] || !formData.text || !formData.category){
+            alert("Please fill up all the entries.")
+        }
+        else{
+            axios.post(`${server}/api/makeRequest`, fD, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            }).then(res => {
+                console.log(res);
+                if (res.data.success) {
+                    formData.station = null, formData.train = null, formData.text = '', formData.category = ''; 
+                    refreshHistory();
+                } else {
+                    alert("Request Submission Failed!");
+                };
+            }).catch(err => { console.log(err) });
+        }
 	};
 
 </script>
@@ -163,6 +168,11 @@
 				<hr>
 				<p class='h5 fw-bold'>Message Body: </p>
 				<p>{sRqst.req_text}</p>
+                {#if sRqst.res_text != null }
+						<hr>
+						<p class='h5 fw-bold'>Response message: </p>
+						<p>{sRqst.res_text}</p>
+					{/if}
 			</div>
 		</div>
 	{/if} <br><br><br>

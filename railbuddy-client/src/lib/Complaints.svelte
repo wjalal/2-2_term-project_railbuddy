@@ -35,6 +35,7 @@
 					trains = [  {id: null, name:''}, ...res3.data];
 					axios.post(`${server}/api/getComplaints`).then(res4 => {
 						complaints = [...res4.data.complaints];
+						console.log(complaints);
 					}).catch(err => { console.log(err) });
 				}).catch(err => { console.log(err) });
 			}).catch(err => { console.log(err) });
@@ -47,21 +48,38 @@
 
 	const onComplain = (event) => {
 		event.preventDefault();
-		axios.post("/api/makeComplaint", {
-			station: formData.station,
-			train: formData.train,
-			text: formData.text,
-			category: formData.category
+        if(formData.text.length===0){
+            alert("Complaint text can not be empty!");
+        }
+        else{
+            axios.post("/api/makeComplaint", {
+                station: formData.station,
+                train: formData.train,
+                text: formData.text,
+                category: formData.category
+            }).then(res => {
+                console.log(res);
+                if (res.data.success) {
+                    formData.station = null, formData.train = null, formData.text = '', formData.category = ''; 
+                    refreshHistory();
+                } else {
+                    alert("Complaint Submission Failed!");
+                };
+            }).catch(err => { console.log(err) });
+        }
+	};
+
+	const setSeen = (t) => {
+		axios.post("/api/setCompSeen", {
+			complaint_id: t.id,
 		}).then(res => {
-			console.log(res);
 			if (res.data.success) {
-				formData.station = null, formData.train = null, formData.text = '', formData.category = ''; 
-				refreshHistory();
+				t.res_seen = true;
 			} else {
-				alert("Complaint Submission Failed!");
+				alert("Soemthing went wrong");
 			};
 		}).catch(err => { console.log(err) });
-	};
+	}
 
 </script>
 
@@ -113,16 +131,26 @@
 							<th>Complaint ID</th>
 							<th>Time of Submission</th>
 							<th>Category</th>
+							<th>Response</th>
 						</tr>
 						{#each complaints as t, i(i)} 
 							<tr class='{sComp==t?"bg-warning":""}'>
 								<td>{i+1}</td>
 								<td><span 	style="font-family:monospace; cursor:pointer" 
-											on:click={() => {sComp = (sComp==t)? null:t}}
+											on:click={() => {sComp = (sComp==t)? null:t; setSeen(t)}}
 											class='text-success text-decoration-underline'> {t.complaint_id} </span>
 								</td>
 								<td>{(new Date(t.req_time)).toLocaleString()}</td>
 								<td>{t.category}</td>
+								<td>{#if t.res_text === null}
+									<small class='text-muted'>Pending</small>
+								{:else} 
+									{#if t.res_seen===false} 
+										<b class='text-success'>1 New</b>
+									{:else} 
+										<span class='text-success'>Received</span>
+									{/if}
+								{/if}</td>
 							</tr>
 						{/each}
 					</tbody>
@@ -145,6 +173,11 @@
 					<hr>
 					<p class='h5 fw-bold'>Message Body: </p>
 					<p>{sComp.req_text}</p>
+					{#if sComp.res_text != null }
+						<hr>
+						<p class='h5 fw-bold'>Response message: </p>
+						<p>{sComp.res_text}</p>
+					{/if}
 				</div>
 			</div>
 		{/if} <br><br><br>

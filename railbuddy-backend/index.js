@@ -61,7 +61,6 @@ app.use(session({
 }));
 
 
-
 const { Pool, Client } = require('pg');
 const e = require('express');
 
@@ -79,6 +78,19 @@ const getRealISODate = () => {
     return (new Date(Date.now() - (new Date()).getTimezoneOffset() * 60000)).toISOString().substring(0, 10);
 };
 
+const initiate_today = () => {
+    dbclient.query("CALL initiate_occupancy_today()").then(res1 => {
+        console.log(res1);
+        dbclient.query("CALL initiate_availability_today()").then(res2 => {
+            console.log(res2);
+        });
+    });
+};
+
+initiate_today();
+
+const cron = setInterval (initiate_today, 1800000);
+
 app.post('/api/getSession',(req,res) => {
     if (req.session.userid) {
         dbclient.query(
@@ -87,7 +99,26 @@ app.post('/api/getSession',(req,res) => {
         ).then(qres => {
             res.send({
                 success: true,
-                name: qres.rows[0].name
+                name: qres.rows[0].name,
+                admin: false
+            });
+        }).catch(e => {
+            req.session.destroy();
+            res.send({
+                success: false,
+            });
+            console.error(e.stack)
+        });
+    }
+    else if ( req.session.adminid){
+        dbclient.query(
+            `SELECT name FROM admin WHERE id=$1`,
+            [req.session.adminid]
+        ).then(qres => {
+            res.send({
+                success: true,
+                name: qres.rows[0].name,
+                admin: true
             });
         }).catch(e => {
             req.session.destroy();
@@ -119,7 +150,32 @@ app.post('/api/login', (req, res) => {
             req.session.userid = req.body.mobile;
             res.send({
                 success: true,
-                name: qres.rows[0].name
+                name: qres.rows[0].name,
+                admin: false
+            });
+            console.log(req.session);
+        };
+    }).catch(e => console.error(e.stack));
+});
+
+app.post('/api/adminLogin', (req, res) => {
+    console.log(req.body);
+
+    dbclient.query(
+        `SELECT name FROM admin WHERE id=$1 AND password=$2`,
+        [req.body.id, req.body.password]
+    ).then(qres => {
+        //console.log(qres);
+        if (qres.rows.length === 0) res.send({ 
+            success: false,
+            name: null,
+        });
+        else {
+            req.session.adminid = req.body.id;
+            res.send({
+                success: true,
+                name: qres.rows[0].name,
+                admin: true
             });
             console.log(req.session);
         };
@@ -199,6 +255,50 @@ app.post('/api/register', (req, res) => {
         });
     } else res.send(false);
 });
+
+app.post('/api/regForeign', (req, res) => {
+    console.log(req.body);
+    dbclient.query (
+        "call new_user($1, $2, $3, $4, $5, $6)",
+        [req.body.mobile, req.body.password, req.body.nid, req.body.dob, req.body.name, req.body.address]
+    ).then(qres => {
+        res.send(true);
+    }).catch(e => {
+        console.error(e.stack);
+        res.send(false);
+    });
+});
+
+app.post('/api/reclaimNID', (req, res) => {
+    console.log(req.body);
+    dbclient.query (
+        "call replace_user($1, $2, $3, $4, $5, $6)",
+        [req.body.mobile, req.body.password, req.body.nid, req.body.dob, req.body.name, req.body.address]
+    ).then(qres => {
+        res.send(true);
+    }).catch(e => {
+        console.error(e.stack);
+        res.send(false);
+    });
+});
+
+app.post('/api/correctUser', (req, res) => {
+    if (req.body.mobile == req.session.userid) {
+        console.log(req.body);
+        dbclient.query (
+            "UPDATE customer SET name=$1, dob=$2 WHERE nid=$3",
+            [req.body.name, req.body.dob, req.body.nid]
+        ).then(qres => {
+            console.log(qres);
+            if (qres.rowCount === 1) res.send(true);
+            else if (qres.rowCount === 0) res.send(false);
+        }).catch(e => {
+            console.error(e.stack);
+            res.send(false);
+        });
+    } else res.send(false);
+});
+
 
 app.post('/api/logout',(req,res) => {
     req.session.destroy();
@@ -296,7 +396,7 @@ app.post('/api/getStations', (req,res) => {
 });
 
 app.post('/api/getTracks', (req,res) => {
-    dbclient.query("SELECT coords FROM station").then(qres => {
+    dbclient.query("SELECT track_array FROM tracks").then(qres => {
         res.send(qres.rows);
     }).catch(e => console.error(e.stack));
 });
@@ -355,6 +455,88 @@ app.post('/api/getComplaints', (req, res) => {
     };
 });
 
+app.post('/api/getComplaintsAdmin', (req, res) => {
+    console.log (req.body);
+    console.log('ehfrgeighiuhvhe');
+    
+    if (req.session.adminid) {
+        dbclient.query(`SELECT *, lpad(id::varchar, 8, '0')::char(8) as complaint_id from complaint join customer on complaint.user_mobile = customer.mobile;`,
+        ).then(qres => {
+            if (qres.rows.length === 0){
+                res.send ( {success: false} );
+            }
+            else res.send ( {
+                success: true, 
+                route: qres.rows
+                
+            });
+        }).catch(e => console.error(e.stack));
+    }
+});
+
+
+app.post('/api/getRequestsAdmin', (req, res) => {
+    console.log (req.body);
+    console.log('ehfrgeighiuhvhe');
+    if (req.session.adminid) {
+        dbclient.query(`SELECT *, lpad(id::varchar, 8, '0')::char(8) as request_id from request join customer on request.user_mobile = customer.mobile;`,
+        ).then(qres => {
+            let reqObj = [...qres.rows];
+            for (r of reqObj) r.doc = null;
+            if (qres.rows.length === 0){
+                res.send ( {success: false} );
+            }
+            else res.send ( {
+                success: true, 
+                route: qres.rows
+                
+            });
+        }).catch(e => console.error(e.stack));
+    }
+});
+
+// app.post('/api/getRequests', (req, res) => {
+//     console.log(req.session);
+//     if (req.session.userid) {
+//         dbclient.query(
+//             `select *, lpad(id::varchar, 8, '0')::char(8) as request_id, category as cat, 
+//             from request where user_mobile=$1
+//             order by req_time desc limit 10`, [req.session.userid]
+//         ).then(qres => {
+//             //console.log(qres);
+//             if (qres.rowCount === 0) res.send({ 
+//                 success: false,
+//             });
+//             else {
+//                 res.send({
+//                     complaints: [...qres.rows],
+//                     success: true,
+//                 });
+//             };
+//         }).catch(e => console.error(e.stack));
+//     };
+// });
+
+app.post('/api/setCompSeen', (req, res) => {
+    console.log(req.session);
+    if (req.session.userid) {
+        dbclient.query(
+            `update complaint set res_seen=true where id=$1 AND user_mobile=$2`, 
+            [req.body.complaint_id, req.session.userid]
+        ).then(qres => {
+            //console.log(qres);
+            if (qres.rowCount === 0) res.send({ 
+                success: false,
+            });
+            else {
+                res.send({
+                    success: true,
+                });
+            };
+        }).catch(e => console.error(e.stack));
+    };
+});
+
 app.post('/api/getClosestStation', (req, res) => {
     console.log(req.body);
     dbclient.query(
@@ -387,6 +569,7 @@ app.post('/api/getRequests', (req, res) => {
             });
             else {
                 let reqObj = [...qres.rows];
+                for (r of reqObj) r.doc = null;
                 console.log(reqObj);
                 //for (const rq of reqObj) rq.doc = Buffer.from(rq.doc.data);
                 res.send({
@@ -581,28 +764,37 @@ app.post('/api/initPurchase', (req, res) => {
     const t_no = req.body.seatList.length;
     console.log(req.body, t_no);
     if (req.session.userid && t_no <= 4 && t_no >= 0) { 
-        console.log("Initiating purchase...");
-        let p_ids=Array(t_no), p_names=Array(t_no), L=Array(t_no), r=Array(t_no), c=Array(t_no);
-        for (let i=0; i<t_no; i++) {
-            p_ids[i] = req.body.seatList[i].pid, p_names[i] = req.body.seatList[i].pname, L[i] = req.body.seatList[i].L;
-            r[i] = req.body.seatList[i].r + 1, c[i] = req.body.seatList[i].c + 1;
-        };
-        console.log('hello');
-        dbclient.query(`select init_purchase($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) as purchase_id`, [   
-            req.session.userid, p_ids, p_names, req.body.class_id, L, 
-            req.body.date, r, c, req.body.bStation,t_no,
-        ]).then(qres => {
-            //console.log(qres);
-            let purchase_id = qres.rows[0].purchase_id;
-            res.send(url.format({
-                pathname: '/api/initPayment',
-                query: {
-                    'tran_id': purchase_id, 
-                    'num_of_item': t_no,
-                    'value_a': req.body.qString,
-                    'value_c': req.body.hostname
-                }
-            }));
+        dbclient.query('select count(*) from purchases where mobile=$1 and date(timestamp)=$2', 
+        [req.session.userid, getRealISODate(new Date())]
+        ).then(fqres => {
+            if (fqres.rows[0].count <3) {
+                console.log("Initiating purchase...");
+                let p_ids=Array(t_no), p_names=Array(t_no), L=Array(t_no), r=Array(t_no), c=Array(t_no);
+                for (let i=0; i<t_no; i++) {
+                    p_ids[i] = req.body.seatList[i].pid, p_names[i] = req.body.seatList[i].pname, L[i] = req.body.seatList[i].L;
+                    r[i] = req.body.seatList[i].r + 1, c[i] = req.body.seatList[i].c + 1;
+                };
+                console.log('hello');
+                dbclient.query(`select init_purchase($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) as purchase_id`, [   
+                    req.session.userid, p_ids, p_names, req.body.class_id, L, 
+                    req.body.date, r, c, req.body.bStation,t_no,
+                ]).then(qres => {
+                    //console.log(qres);
+                    let purchase_id = qres.rows[0].purchase_id;
+                    res.send(url.format({
+                        pathname: '/api/initPayment',
+                        query: {
+                            'tran_id': purchase_id, 
+                            'num_of_item': t_no,
+                            'value_a': req.body.qString,
+                            'value_c': req.body.hostname
+                        }
+                    }));
+                }).catch(e => console.error(e));
+            } else res.send({
+                success: false,
+                quota : "full"
+            });
         }).catch(e => console.error(e));
     };
 });
@@ -858,18 +1050,31 @@ app.get('/api/getTicketPDF', (req, res) => {
 app.get('/api/getUserDoc', (req, res) => {
     if (req.session.userid) {
         dbclient.query(
-           `SELECT doc, docname FROM request WHERE id=$1 and user_mobile=$2`, [Number(req.query.rid), req.session.userid]
+           `SELECT doc, docname FROM request WHERE id=$1 and user_mobile=$2`,  
+           [Number(req.query.rid), req.session.userid]
         ).then(qres => {
             console.log(qres.rows);
-            if (qres.rows.length === 0) res.send("User login is required to access the ticket.");
-            else {
+            if (qres.rows.length > 0) {
                 const stream = Readable.from(qres.rows[0].doc);
                 // res.setHeader('Content-Type', 'application/pdf');
                 res.setHeader('Content-Disposition', 'inline; filename=' + qres.rows[0].docname);
                 stream.pipe(res);
-            };
+            } else res.send("User/admin login is required to access the ticket.");
         }).catch(e => console.error(e.stack));
-    } else res.send("User login is required to access the ticket.");
+    } else if (req.session.adminid) {
+        dbclient.query(
+           `SELECT doc, docname FROM request WHERE id=$1`,  
+           [Number(req.query.rid)]
+        ).then(qres => {
+            console.log(qres.rows);
+            if (qres.rows.length > 0) {
+                const stream = Readable.from(qres.rows[0].doc);
+                // res.setHeader('Content-Type', 'application/pdf');
+                res.setHeader('Content-Disposition', 'inline; filename=' + qres.rows[0].docname);
+                stream.pipe(res);
+            } else res.send("User/admin login is required to access the ticket.");
+        }).catch(e => console.error(e.stack));
+    } else res.send("User/admin login is required to access the ticket.");
 });
 
 
@@ -970,6 +1175,85 @@ app.post('/api/changePassword', (req, res) => {
         });
     };
 });
+
+
+
+
+app.post('/api/setOffset', (req, res) => {
+    console.log (req.body);
+    dbclient.query(`call update_schedule($1,$2, $3::interval)`,
+    [req.body.train, req.body.date, req.body.interval]
+    ).then(qres => {
+        res.send({
+            success: true,
+        });
+        
+    }).catch(e => console.error(e));
+});
+
+app.post('/api/sendReply', (req, res) => {
+    console.log (req.body);
+    console.log('ehfrgeighiuhvhe');
+    if (req.session.adminid) {
+        dbclient.query(`UPDATE complaint SET res_text = $1, res_time = current_timestamp WHERE id = $2`,
+        [req.body.reply, req.body.id]
+        ).then(qres => {
+            if (qres.rowCount === 1) res.send({ 
+                success: true,
+            });
+            else if (qres.rowCount === 0) {
+                res.send({
+                    success: false,
+                });
+            };
+        }).catch(e => console.error(e.stack));
+    }
+});
+
+app.post('/api/sendResponse', (req, res) => {
+    console.log (req.body);
+    console.log('ehfrgeighiuhvhe');
+    if (req.session.adminid) {
+        dbclient.query(`UPDATE request SET res_text = $1, res_time = current_timestamp WHERE id = $2`,
+        [req.body.reply, req.body.id]
+        ).then(qres => {
+            if (qres.rowCount === 1) res.send({ 
+                success: true,
+            });
+            else if (qres.rowCount === 0) {
+                res.send({
+                    success: false,
+                });
+            };
+        }).catch(e => console.error(e.stack));
+    }
+});
+
+app.post('/api/postNotice', (req, res) => {
+    console.log (req.body);
+    console.log('ehfrgeighiuhvhe');
+    if (req.session.adminid) {
+        dbclient.query(`INSERT INTO notice(title,text,time_posted,valid_until, admin_id) VALUES($1,$2,NOW(),$3::timestamp,$4)`,
+        [req.body.title, req.body.text, req.body.vt, req.session.adminid]
+        ).then(qres => {
+            if (qres.rowCount === 1) res.send({ 
+                success: true,
+            });
+            else if (qres.rowCount === 0) {
+                res.send({
+                    success: false,
+                });
+            };
+        }).catch(e => console.error(e.stack));
+    }
+});
+
+app.post('/api/getNotices', (req,res) => {
+    dbclient.query("SELECT title, text, time_posted FROM notice").then(qres => {
+        res.send(qres.rows);
+    }).catch(e => console.error(e.stack));
+});
+
 
 app.use(express.static(path.resolve(__dirname, '../railbuddy-client/dist')));
 

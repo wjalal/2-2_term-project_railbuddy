@@ -15,20 +15,28 @@
 
 	const onLogin = (event) => {
 		event.preventDefault();
-		axios.post("/api/login", {
-			mobile: formData.mobile,
-			password: formData.password,
-		}).then(res => {
-			if (res.data.success) {
-				console.log(res);
-				userName.set(res.data.name);
-				window.location.href = '/';
-			} else {
-				alert("No matching credentials found!");
-			};
-		}).catch(function (err) {
-			console.log(err);
-		});
+        if(formData.mobile.length!= 11){
+            alert("Phone number must be 11 characters long!");
+        }
+        else if(!(formData.password.length>=8 && formData.password.length<=32)){
+            alert("Phone number must be at least 8 characters and at most 32 characters long!");
+        }
+        else{
+            axios.post("/api/login", {
+                mobile: formData.mobile,
+                password: formData.password,
+            }).then(res => {
+                if (res.data.success) {
+                    console.log(res);
+                    userName.set(res.data.name);
+                    window.location.href = '/';
+                } else {
+                    alert("No matching credentials found!");
+                };
+            }).catch(function (err) {
+                console.log(err);
+            });
+        }
 	};
 </script>
 

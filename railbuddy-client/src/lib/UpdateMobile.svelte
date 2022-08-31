@@ -19,8 +19,8 @@
 	};
 
 	const onUpdateMobile = (event) => {
-		axios.defaults.withCredentials = true;
 		event.preventDefault();
+		axios.defaults.withCredentials = true;
 		if (!formData.showOTP && !formData.showNewMobile && formData.showPassword) {
 			axios.post('/api/validateSendNewMobileOTP', {
 				password: formData.password,
