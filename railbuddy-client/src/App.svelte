@@ -19,6 +19,7 @@
 	import Complaints from "./lib/Complaints.svelte";
 	import Requests from "./lib/Requests.svelte";
 	import Notices from "./lib/Notices.svelte";
+	import Contact from "./lib/Contact.svelte";
 	import ComplaintAdmin from "./lib/ui/ComplaintAdmin.svelte";
 	import RequestAdmin from "./lib/ui/RequestAdmin.svelte";
 	import NoticeAdmin from "./lib/ui/NoticeAdmin.svelte";
@@ -223,6 +224,8 @@
 		<Route path="complaint">	<Complaints/>				</Route>
 		<Route path="request">		<Requests/>					</Route>
 		<Route path="notice">		<Notices/>					</Route>
+		<Route path="contact">		<Contact/>					</Route>
+
 
 		
 		<Route path="admin_reclaim">		<ReclaimNIDAdmin server = {""}/>					</Route>
