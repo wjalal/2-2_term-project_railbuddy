@@ -3,7 +3,7 @@ const session = require('express-session');
 const path = require('path');
 const cors = require('cors');
 const app = express();
-const port = 80;
+const port = 6984;
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const otpGenerator = require('otp-generator');
@@ -27,10 +27,10 @@ app.use(cookieParser());
 
 app.enable('trust proxy');
 // app.use(cors());
-app.use(cors({
-    origin: 'http://localhost:5173',
-    credentials: true
-}));
+//app.use(cors({
+//    origin: 'http://localhost:5173',
+//    credentials: true
+//}));
 
 const SSLCommerzPayment = require('sslcommerz-lts')
 const store_id = process.env.SSLCZ_STORE_ID;
@@ -1034,8 +1034,8 @@ app.get('/api/getTicketPDF', (req, res) => {
                 t.qrURL = `https://chart.googleapis.com/chart?chs=250x250&cht=qr&chl=http://harmony-open.com:6984/verif?tid=${t.ticket_id}%26u=${t.mobile}`
                 let document = { html: html, data: { t: t }, path: "./output.pdf", type: "stream" };
                 pdf.create(document, {
-                    height: "600px",
-                    width: "424px",
+                    height: "1080px",
+                    width: "764px",
                 }).then(pres => {
                     console.log(pres);
                     res.setHeader('Content-Type', 'application/pdf');
@@ -1249,7 +1249,7 @@ app.post('/api/postNotice', (req, res) => {
 });
 
 app.post('/api/getNotices', (req,res) => {
-    dbclient.query("SELECT title, text, time_posted FROM notice").then(qres => {
+    dbclient.query("SELECT title, text, time_posted FROM notice ORDER BY time_posted DESC").then(qres => {
         res.send(qres.rows);
     }).catch(e => console.error(e.stack));
 });
