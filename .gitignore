@@ -1,1 +1,5 @@
 .env
+backend/.env
+db_dump_local.sql
+db_dump_sdf.sql
+backend/uploads/
