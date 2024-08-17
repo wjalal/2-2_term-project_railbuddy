@@ -1,0 +1,15 @@
+                    // 'product_name': "Ticket for " + req.body.class_id,
+                    // 'product_category': 'train ticket',
+                    // 'product_profile': 'non-physical-goods',
+                    // 'cus_name': cus_name,
+                    // 'cus_email': 'jalalwasif@gmail.com',
+                    // 'cus_phone': req.session.userid,
+
+                    // 'success_url': req.body.hostname + "/api/pay_success",
+                    // 'fail_url': req.body.hostname + "/api/pay_fail",
+                    // 'cancel_url': req.body.hostname + "/api/pay_cancel",
+                    //ipn_url: 'http://localhost:3030/ipn',
+                    // 'shipping_method': 'NO',
+
+                    // 'total_amount': Number(price),
+                    // 'currency': 'BDT',
