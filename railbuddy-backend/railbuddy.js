@@ -1031,7 +1031,7 @@ app.get('/api/getTicketPDF', (req, res) => {
                 let t = qres.rows[0];
                 t.day_of_travel = (new Date(t.day_of_travel)).toDateString();
                 t.timestamp = (new Date(t.timestamp)).toLocaleString();
-                t.qrURL = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=http://${req.headers.host}/verif?tid=${t.ticket_id}%26u=${t.mobile}`
+                t.qrURL = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://${req.headers.host}/verif?tid=${t.ticket_id}%26u=${t.mobile}`
                 let document = { html: html, data: { t: t }, path: "./output.pdf", type: "stream" };
                 pdf.create(document, {
                     height: "1080px",
