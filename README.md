@@ -3,7 +3,7 @@
 RailBuddy is a web-based platform designed to enhance the train travel experience in Bangladesh. It provides real-time schedules, ticket booking, and other essential features to help users plan their journeys seamlessly.
 
 ## Live Demo
-Check out [RailBuddy : railbuddy.wjalal.xyz](railbuddy.wjalal.xyz)
+Check out [RailBuddy : railbuddy.wjalal.xyz](https://railbuddy.wjalal.xyz)
 
 ## Features
 - **Real-Time Schedules**: Updated train schedules for major routes.
